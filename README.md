@@ -6,6 +6,7 @@
 
 A modern personal finance app built with Vue 3, Supabase, and AI — featuring envelope budgeting, interactive analytics, budget stress testing, and PDF/Excel report exports.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-envelo.netlify.app-D7F34A?style=flat-square)](https://envelo.netlify.app)
 [![Vue.js](https://img.shields.io/badge/Vue-3-4FC08D?style=flat-square&logo=vue.js)](https://vuejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite)](https://vite.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database-3FCF8E?style=flat-square&logo=supabase)](https://supabase.com/)

@@ -94,9 +94,15 @@ Return ONLY a valid JSON object (no markdown, no code fences, no explanation):
     if (!jsonMatch) throw new Error('No JSON in AI response')
 
     const parsed = JSON.parse(jsonMatch[0])
+    // Validate amount — if 0 or null, try regex fallback
+    let amount = typeof parsed.amount === 'number' ? parsed.amount : null
+    if (!amount || amount <= 0) {
+      const fallback = parseBillFallback(ocrText)
+      amount = fallback.amount
+    }
     return {
       name: parsed.name || null,
-      amount: typeof parsed.amount === 'number' ? parsed.amount : null,
+      amount: amount,
       date: parsed.date || null,
       category: parsed.category || null,
       merchant: parsed.merchant || null,

@@ -80,9 +80,12 @@ function fireflyStyle(n) {
   const size = 3 + (n % 4) * 1.5 // 3px to 7.5px
   const delay = (n * 1.3) % 8
   const duration = 6 + (n % 5) * 2 // 6s to 14s
-  const driftX = -15 + (n % 7) * 5 // horizontal drift
-  const driftY = -20 + (n % 6) * 7 // vertical drift
-  const glowColor = n % 3 === 0 ? '215, 243, 74' : n % 3 === 1 ? '255, 235, 120' : '200, 240, 100'
+  // Random directions for each firefly
+  const angle = ((n * 137.508) % 360) * (Math.PI / 180) // golden angle spread
+  const distance = 20 + (n % 5) * 10 // 20–60px travel
+  const driftX = Math.round(Math.cos(angle) * distance)
+  const driftY = Math.round(Math.sin(angle) * distance)
+  // All acid yellow: #D7F34A
   return {
     left: pos.x + '%',
     top: pos.y + '%',
@@ -92,8 +95,8 @@ function fireflyStyle(n) {
     animationDuration: duration + 's',
     '--drift-x': driftX + 'px',
     '--drift-y': driftY + 'px',
-    '--glow-color': `rgba(${glowColor}, 0.8)`,
-    '--glow-spread': `rgba(${glowColor}, 0.3)`,
+    '--glow-color': 'rgba(215, 243, 74, 0.9)',
+    '--glow-spread': 'rgba(215, 243, 74, 0.35)',
   }
 }
 </script>
@@ -310,18 +313,26 @@ function fireflyStyle(n) {
     transform: translate(0, 0) scale(1);
     opacity: 0;
   }
-  15% {
-    opacity: 0.9;
+  10% {
+    opacity: 0.8;
   }
-  50% {
-    transform: translate(var(--drift-x, 10px), var(--drift-y, -15px)) scale(1.2);
+  25% {
+    transform: translate(calc(var(--drift-x) * 0.5), calc(var(--drift-y) * -0.7)) scale(1.15);
     opacity: 1;
   }
-  85% {
+  50% {
+    transform: translate(calc(var(--drift-x) * -0.3), calc(var(--drift-y) * 0.4)) scale(0.9);
+    opacity: 0.9;
+  }
+  75% {
+    transform: translate(calc(var(--drift-x) * 0.8), calc(var(--drift-y) * 0.6)) scale(1.1);
     opacity: 0.7;
   }
+  90% {
+    opacity: 0.4;
+  }
   100% {
-    transform: translate(calc(var(--drift-x, 10px) * -0.6), calc(var(--drift-y, -15px) * -0.8)) scale(0.8);
+    transform: translate(calc(var(--drift-x) * -0.4), calc(var(--drift-y) * -0.5)) scale(0.85);
     opacity: 0;
   }
 }

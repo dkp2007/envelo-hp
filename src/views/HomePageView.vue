@@ -23,47 +23,65 @@ const features = [
   {
     icon: '✉️',
     title: 'Envelope Budgeting',
-    desc: 'Allocate your income into spending categories with set limits. Track every rupee and know exactly where your money goes.',
+    desc: 'Allocate income into spending categories with set limits. Track every rupee and know exactly where your money goes each month.',
   },
   {
-    icon: '🎯',
-    title: 'Savings Goals',
-    desc: 'Set financial targets with deadlines and watch your progress grow. Visual bars keep you motivated to reach each milestone.',
-  },
-  {
-    icon: '📈',
-    title: 'Smart Analytics',
-    desc: 'Doughnut charts, bar graphs, and trend lines reveal your spending patterns. Switch between graph types and time ranges instantly.',
-  },
-  {
-    icon: '📊',
-    title: 'PDF & Excel Reports',
-    desc: 'Export monthly breakdowns, budget vs actual comparisons, and key metrics as formatted PDFs or multi-sheet Excel workbooks.',
+    icon: '📸',
+    title: 'OCR Bill Scanner',
+    desc: 'Upload a receipt photo — Tesseract.js extracts text, AI parses the amount, date, merchant, and category. One click to save.',
   },
   {
     icon: '🤖',
     title: 'AI Financial Plan',
-    desc: 'Answer a few questions and our AI crafts a personalized savings and expenditure plan with budget splits and actionable tips.',
+    desc: 'Answer 6 quick questions about your income and goals. Groq AI generates a personalized savings and expenditure plan in seconds.',
   },
   {
-    icon: '🛡️',
+    icon: '💪',
     title: 'Budget Stress Test',
-    desc: 'Simulate medical bills, income cuts, and emergencies. Find out if your budget survives — and get a plan to make it stronger.',
+    desc: 'Simulate medical emergencies, income cuts, and big purchases. Find out if your budget survives — and get a plan to make it stronger.',
+  },
+  {
+    icon: '📈',
+    title: 'Smart Analytics',
+    desc: 'Doughnut charts, bar graphs, radar views, and trend lines reveal your spending patterns. Switch between graph types and time ranges instantly.',
+  },
+  {
+    icon: '📄',
+    title: 'PDF & Excel Reports',
+    desc: 'Export monthly breakdowns, budget vs actual comparisons, and key metrics as formatted PDFs with embedded charts or multi-sheet Excel workbooks.',
   },
 ]
 
 const steps = [
   { num: '1', icon: '🔗', title: 'Sign Up Free', desc: 'Create your account with Google or email in seconds. No credit card needed.' },
   { num: '2', icon: '📋', title: 'Set Your Budget', desc: 'Create envelopes for Rent, Food, Fun, and more. Set limits that match your lifestyle.' },
-  { num: '3', icon: '💸', title: 'Track Expenses', desc: 'Log income and expenses as they happen. Upload receipts and categorize automatically.' },
-  { num: '4', icon: '📈', title: 'Grow & Optimize', desc: 'Let AI analyze your spending, generate reports, and help you save more every month.' },
+  { num: '3', icon: '💸', title: 'Track Expenses', desc: 'Log income and expenses as they happen. Upload receipts and let AI categorize them.' },
+  { num: '4', icon: '📈', title: 'Grow & Optimize', desc: 'Let AI analyze your spending, stress-test your budget, and help you save more every month.' },
 ]
 
 const stats = [
-  { value: '₹2L+', label: 'Budgets Tracked' },
-  { value: '50K+', label: 'Expenses Logged' },
-  { value: '33%', label: 'Avg Savings Rate' },
-  { value: '99.9%', label: 'Uptime' },
+  { value: '6', label: 'AI Features Built' },
+  { value: '5', label: 'Interactive Chart Types' },
+  { value: '45+', label: 'Demo Transactions' },
+  { value: '100%', label: 'Free & Open Source' },
+]
+
+const testimonials = [
+  {
+    quote: 'I finally know where my money goes every month. The envelope system changed how I think about spending.',
+    name: 'Budget Enthusiast',
+    role: 'Beta Tester',
+  },
+  {
+    quote: 'The OCR bill scanner is incredible — I just snap a photo and everything is logged automatically.',
+    name: 'Tech Early Adopter',
+    role: 'Beta Tester',
+  },
+  {
+    quote: 'The stress test showed me I was one emergency away from trouble. Now I have a proper safety net.',
+    name: 'Financial Planner',
+    role: 'Beta Tester',
+  },
 ]
 </script>
 
@@ -104,48 +122,64 @@ const stats = [
     <!-- Hero -->
     <section class="hero">
       <div class="hero-inner">
-        <div class="hero-badge">✨ Now with AI-powered financial planning</div>
+        <div class="hero-badge">✨ AI-powered budgeting for modern India</div>
         <h1 class="hero-title">
-          Take control of<br />
-          <span class="hero-accent">your money.</span>
+          Stop guessing.<br />
+          <span class="hero-accent">Start planning.</span>
         </h1>
         <p class="hero-desc">
-          Envelo is a personal finance app that helps you track every rupee, build budgets that actually work,
-          reach your savings goals, and get AI-powered insights — so you never have to guess where your money went.
+          Envelo is an open-source personal finance app that helps you track every rupee, build budgets that actually work,
+          scan bills with AI, stress-test your finances, and get personalized savings plans — all for free.
         </p>
         <div class="hero-actions">
           <router-link to="/auth" class="hero-btn primary">Start Free →</router-link>
-          <button class="hero-btn secondary" @click="$el.closest('.home-page').querySelector('.features').scrollIntoView({ behavior: 'smooth' })">See Features</button>
+          <button class="hero-btn secondary" @click="document.querySelector('.features')?.scrollIntoView({ behavior: 'smooth' })">See Features</button>
         </div>
         <div class="hero-proof">
           <span class="proof-dot"></span>
-          No credit card required · Free forever plan
+          No credit card required · 100% free · Open source
         </div>
       </div>
       <div class="hero-visual">
-        <div class="mock-card mc-1">
-          <div class="mc-header">
-            <span class="mc-icon">🏠</span>
-            <span class="mc-title">Rent</span>
+        <!-- Dashboard Mock -->
+        <div class="mock-dashboard">
+          <div class="mock-topbar">
+            <span class="mock-title">Overview</span>
+            <span class="mock-avatar">D</span>
           </div>
-          <div class="mc-bar"><div class="mc-fill" style="width: 60%; background: #202124;"></div></div>
-          <span class="mc-amt">₹12,000 / ₹20,000</span>
+          <div class="mock-stats">
+            <div class="mock-stat">
+              <span class="mock-stat-label">Total Income</span>
+              <span class="mock-stat-value income">₹58,000</span>
+            </div>
+            <div class="mock-stat">
+              <span class="mock-stat-label">Total Spent</span>
+              <span class="mock-stat-value expense">₹32,450</span>
+            </div>
+            <div class="mock-stat">
+              <span class="mock-stat-label">Savings Rate</span>
+              <span class="mock-stat-value savings">44%</span>
+            </div>
+          </div>
+          <div class="mock-chart-area">
+            <div class="mock-bar" v-for="(h, i) in [65, 45, 80, 55, 70, 40, 90]" :key="i" :style="{ height: h + '%', animationDelay: i * 0.1 + 's' }"></div>
+          </div>
+          <div class="mock-label">Monthly Spending · Real-time</div>
         </div>
-        <div class="mock-card mc-2">
-          <div class="mc-header">
-            <span class="mc-icon">🍔</span>
-            <span class="mc-title">Food</span>
+        <!-- Floating Cards -->
+        <div class="float-card fc-1">
+          <span class="fc-icon">📸</span>
+          <div>
+            <span class="fc-title">Bill Scanned</span>
+            <span class="fc-sub">₹1,247 · Big Bazaar</span>
           </div>
-          <div class="mc-bar"><div class="mc-fill" style="width: 55%; background: #D7F34A;"></div></div>
-          <span class="mc-amt">₹2,750 / ₹5,000</span>
         </div>
-        <div class="mock-card mc-3">
-          <div class="mc-header">
-            <span class="mc-icon">💰</span>
-            <span class="mc-title">Savings</span>
+        <div class="float-card fc-2">
+          <span class="fc-icon">🤖</span>
+          <div>
+            <span class="fc-title">AI Plan Ready</span>
+            <span class="fc-sub">Save ₹8,000/mo</span>
           </div>
-          <div class="mc-bar"><div class="mc-fill" style="width: 67%; background: #2e7d32;"></div></div>
-          <span class="mc-amt">₹8,000 / ₹12,000</span>
         </div>
       </div>
     </section>
@@ -195,11 +229,75 @@ const stats = [
       </div>
     </section>
 
+    <!-- Testimonials -->
+    <section class="testimonials-section">
+      <div class="section-inner">
+        <div class="section-header">
+          <h2 class="section-title">What people are saying</h2>
+          <p class="section-desc">Real feedback from early users.</p>
+        </div>
+        <div class="testimonial-grid">
+          <div v-for="(t, i) in testimonials" :key="i" class="testimonial-card">
+            <p class="testimonial-quote">"{{ t.quote }}"</p>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar">{{ t.name.charAt(0) }}</div>
+              <div>
+                <span class="testimonial-name">{{ t.name }}</span>
+                <span class="testimonial-role">{{ t.role }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tech Stack -->
+    <section class="tech-section">
+      <div class="section-inner">
+        <div class="section-header">
+          <h2 class="section-title">Built with modern tech</h2>
+          <p class="section-desc">Open source, transparent, and built to scale.</p>
+        </div>
+        <div class="tech-grid">
+          <div class="tech-item">
+            <span class="tech-icon">⚡</span>
+            <span class="tech-name">Vue 3 + Vite</span>
+            <span class="tech-desc">Lightning-fast frontend</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-icon">🗄️</span>
+            <span class="tech-name">Supabase</span>
+            <span class="tech-desc">PostgreSQL + Auth + Storage</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-icon">🤖</span>
+            <span class="tech-name">Groq AI</span>
+            <span class="tech-desc">LLaMA / GPT-OSS models</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-icon">📸</span>
+            <span class="tech-name">Tesseract.js</span>
+            <span class="tech-desc">In-browser OCR engine</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-icon">📊</span>
+            <span class="tech-name">Chart.js</span>
+            <span class="tech-desc">5 interactive chart types</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-icon">🔒</span>
+            <span class="tech-name">Row-Level Security</span>
+            <span class="tech-desc">User data isolation</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- CTA -->
     <section class="cta-section">
       <div class="cta-inner">
         <h2 class="cta-title">Ready to take control of your finances?</h2>
-        <p class="cta-desc">Join thousands of people who budget smarter and save more with Envelo.</p>
+        <p class="cta-desc">Join early users who budget smarter and save more with Envelo.</p>
         <router-link to="/auth" class="cta-btn">Get Started Free →</router-link>
       </div>
     </section>
@@ -212,14 +310,14 @@ const stats = [
             <img src="/icon.png" alt="Envelo" class="footer-logo" />
             <span class="footer-name">Envelo</span>
           </div>
-          <p class="footer-tagline">Budget smarter. Save more.</p>
+          <p class="footer-tagline">Budget smarter. Save more. Free forever.</p>
         </div>
         <div class="footer-links">
           <div class="footer-col">
             <h4 class="footer-col-title">Product</h4>
-            <router-link to="/" class="footer-link">Overview</router-link>
-            <router-link to="/auth" class="footer-link">Pricing</router-link>
+            <a href="/#features" class="footer-link">Features</a>
             <router-link to="/help" class="footer-link">Help & Support</router-link>
+            <a href="https://github.com/dkp2007/envelo" target="_blank" class="footer-link">GitHub</a>
           </div>
           <div class="footer-col">
             <h4 class="footer-col-title">Legal</h4>
@@ -229,7 +327,7 @@ const stats = [
         </div>
       </div>
       <div class="footer-bottom">
-        <p class="footer-copy">© {{ new Date().getFullYear() }} Envelo. All rights reserved.</p>
+        <p class="footer-copy">© {{ new Date().getFullYear() }} Envelo. Open source under MIT License.</p>
       </div>
     </footer>
   </div>
@@ -486,63 +584,165 @@ const stats = [
   flex-shrink: 0;
 }
 
-/* Hero Visual */
+/* ─── Hero Visual — Dashboard Mock ─── */
 .hero-visual {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  align-items: center;
+  justify-content: center;
 }
 
-.mock-card {
+.mock-dashboard {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  padding: 1.25rem 1.5rem;
-  width: 320px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-  transition: transform 0.3s ease;
+  padding: 0;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
 }
 
-.mock-card:hover {
-  transform: translateY(-4px);
-}
-
-.mc-2 { margin-left: 2rem; }
-.mc-3 { margin-left: -1rem; }
-
-.mc-header {
+.mock-topbar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  background: var(--color-graphite);
 }
 
-.mc-icon {
-  font-size: 1.125rem;
+.mock-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
 }
 
-.mc-title {
-  font-size: 0.875rem;
+.mock-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-graphite);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.mock-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mock-stat {
+  padding: 1rem;
+  text-align: center;
+  border-right: 1px solid var(--color-border);
+}
+
+.mock-stat:last-child {
+  border-right: none;
+}
+
+.mock-stat-label {
+  display: block;
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mock-stat-value {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.mock-stat-value.income { color: var(--color-accent-hover); }
+.mock-stat-value.expense { color: #dc2626; }
+.mock-stat-value.savings { color: #2e7d32; }
+
+.mock-chart-area {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 1.25rem 1.25rem 0.75rem;
+  height: 120px;
+}
+
+.mock-bar {
+  flex: 1;
+  background: var(--color-accent);
+  border-radius: 4px 4px 0 0;
+  animation: barGrow 0.8s ease-out forwards;
+  opacity: 0.85;
+  min-height: 8px;
+}
+
+.mock-bar:nth-child(odd) {
+  background: var(--color-graphite);
+}
+
+@keyframes barGrow {
+  0% { height: 0; }
+  100% { height: inherit; }
+}
+
+.mock-label {
+  padding: 0.5rem 1.25rem 1rem;
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Floating cards */
+.float-card {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  animation: float 3s ease-in-out infinite;
+  border: 1px solid var(--color-border);
+}
+
+.fc-1 {
+  top: 15%;
+  left: -10%;
+  animation-delay: 0s;
+}
+
+.fc-2 {
+  bottom: 15%;
+  right: -8%;
+  animation-delay: 1.5s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.fc-icon {
+  font-size: 1.25rem;
+}
+
+.fc-title {
+  display: block;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text);
 }
 
-.mc-bar {
-  height: 6px;
-  background: var(--color-bg);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 0.375rem;
-}
-
-.mc-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-
-.mc-amt {
-  font-size: 0.75rem;
+.fc-sub {
+  display: block;
+  font-size: 0.625rem;
   color: var(--color-text-muted);
 }
 
@@ -684,6 +884,112 @@ const stats = [
 .step-desc {
   font-size: 0.8125rem;
   line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+/* ─── Testimonials ─── */
+.testimonials-section {
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.testimonial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.testimonial-card {
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  border: 1px solid var(--color-border);
+}
+
+.testimonial-quote {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  margin-bottom: 1.25rem;
+  font-style: italic;
+}
+
+.testimonial-author {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.testimonial-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-graphite);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.testimonial-name {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.testimonial-role {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* ─── Tech Stack ─── */
+.tech-section {
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+}
+
+.tech-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.tech-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.tech-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.tech-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.tech-name {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.tech-desc {
+  display: block;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
 }
 

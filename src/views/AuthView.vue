@@ -29,13 +29,8 @@ function resetCaptcha() {
 
 async function handleGoogleLogin() {
   error.value = ''
-  if (!isLocalhost && !hasValidToken()) {
-    error.value = 'Please complete the captcha verification.'
-    return
-  }
   try {
-    const token = consumeToken()
-    await auth.loginWithGoogle(token)
+    await auth.loginWithGoogle()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -45,14 +40,9 @@ async function handleGoogleLogin() {
 
 async function handleEmailSignIn() {
   error.value = ''
-  if (!isLocalhost && !hasValidToken()) {
-    error.value = 'Please complete the captcha verification.'
-    return
-  }
   loading.value = true
   try {
-    const token = consumeToken()
-    await auth.signInWithEmail(email.value, password.value, token)
+    await auth.signInWithEmail(email.value, password.value)
   } catch (err) {
     error.value = err.message
   } finally {
@@ -64,14 +54,9 @@ async function handleEmailSignIn() {
 async function handleEmailSignUp() {
   error.value = ''
   successMessage.value = ''
-  if (!isLocalhost && !hasValidToken()) {
-    error.value = 'Please complete the captcha verification.'
-    return
-  }
   loading.value = true
   try {
-    const token = consumeToken()
-    await auth.signUpWithEmail(email.value, password.value, token)
+    await auth.signUpWithEmail(email.value, password.value)
     successMessage.value = 'Check your email for a verification link.'
     email.value = ''
     password.value = ''

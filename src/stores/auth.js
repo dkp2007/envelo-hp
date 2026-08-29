@@ -18,33 +18,30 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  async function loginWithGoogle(captchaToken) {
+  async function loginWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
-        captchaToken,
       },
     })
     if (error) throw error
   }
 
-  async function signInWithEmail(email, password, captchaToken) {
+  async function signInWithEmail(email, password) {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: { captchaToken },
     })
     if (error) throw error
   }
 
-  async function signUpWithEmail(email, password, captchaToken) {
+  async function signUpWithEmail(email, password) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: window.location.origin + '/auth/verify',
-        captchaToken,
       },
     })
     if (error) throw error

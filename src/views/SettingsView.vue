@@ -357,19 +357,6 @@ const dateFormatOptions = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD']
             </button>
           </div>
 
-          <!-- Data & Privacy -->
-          <div class="card">
-            <div class="card-header">
-              <h2 class="card-title">Data & Privacy</h2>
-            </div>
-            <p class="info-text">Your data is stored securely in Supabase with Row-Level Security. Only you can access your financial data.</p>
-            <div class="info-list">
-              <div class="info-row"><span>📊</span><p>Transactions, budgets, and goals are private to your account</p></div>
-              <div class="info-row"><span>📸</span><p>Uploaded bills are stored in private storage</p></div>
-              <div class="info-row"><span>🤖</span><p>AI features process data through Groq API (not stored)</p></div>
-            </div>
-          </div>
-
           <!-- Danger Zone -->
           <div class="card danger-card">
             <div class="card-header">

@@ -62,7 +62,7 @@ const steps = [
 const stats = [
   { value: '6', label: 'AI Features Built' },
   { value: '5', label: 'Interactive Chart Types' },
-  { value: '45+', label: 'Demo Transactions' },
+  { value: '45+', label: 'Transactions Tracked' },
   { value: '100%', label: 'Free & Open Source' },
 ]
 

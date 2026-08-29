@@ -509,13 +509,20 @@ onUnmounted(() => {
   padding: 1.5rem 2rem;
   overflow-y: auto;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content > :first-child {
+  flex: 1;
 }
 
 /* ─── Footer ─── */
 .app-footer {
-  margin-top: 2rem;
+  margin-top: auto;
   padding-top: 1.25rem;
   border-top: 1px solid var(--color-bg);
+  flex-shrink: 0;
 }
 
 .footer-inner {

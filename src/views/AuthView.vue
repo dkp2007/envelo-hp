@@ -32,7 +32,8 @@ function resetCaptcha() {
 async function handleGoogleLogin() {
   error.value = ''
   try {
-    await auth.loginWithGoogle()
+    const token = isLocalhost ? '' : consumeToken()
+    await auth.loginWithGoogle(token)
   } catch (err) {
     error.value = err.message
     resetCaptcha()
@@ -43,7 +44,8 @@ async function handleEmailSignIn() {
   error.value = ''
   loading.value = true
   try {
-    await auth.signInWithEmail(email.value, password.value)
+    const token = isLocalhost ? '' : consumeToken()
+    await auth.signInWithEmail(email.value, password.value, token)
     router.push({ name: 'dashboard' })
   } catch (err) {
     error.value = err.message
@@ -58,7 +60,8 @@ async function handleEmailSignUp() {
   successMessage.value = ''
   loading.value = true
   try {
-    await auth.signUpWithEmail(email.value, password.value)
+    const token = isLocalhost ? '' : consumeToken()
+    await auth.signUpWithEmail(email.value, password.value, token)
     successMessage.value = 'Check your email for a verification link.'
     email.value = ''
     password.value = ''

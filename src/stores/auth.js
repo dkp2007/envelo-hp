@@ -18,31 +18,36 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  async function loginWithGoogle() {
+  async function loginWithGoogle(captchaToken) {
+    const options = { redirectTo: window.location.origin }
+    if (captchaToken) options.captchaToken = captchaToken
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
+      options,
     })
     if (error) throw error
   }
 
-  async function signInWithEmail(email, password) {
+  async function signInWithEmail(email, password, captchaToken) {
+    const options = {}
+    if (captchaToken) options.captchaToken = captchaToken
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      ...(Object.keys(options).length ? { options } : {}),
     })
     if (error) throw error
   }
 
-  async function signUpWithEmail(email, password) {
+  async function signUpWithEmail(email, password, captchaToken) {
+    const options = {
+      emailRedirectTo: window.location.origin + '/auth/verify',
+    }
+    if (captchaToken) options.captchaToken = captchaToken
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: window.location.origin + '/auth/verify',
-      },
+      options,
     })
     if (error) throw error
   }

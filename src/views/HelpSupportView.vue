@@ -3,8 +3,10 @@ import { ref } from 'vue'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/composables/useToast.js'
 
 const auth = useAuthStore()
+const toast = useToast()
 
 const name = ref('')
 const email = ref('')
@@ -93,6 +95,7 @@ async function submitForm() {
   }
 
   submitted.value = true
+  toast.success('Message sent! We\'ll get back to you within 24 hours.')
   name.value = ''
   email.value = ''
   subject.value = ''

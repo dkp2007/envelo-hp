@@ -3,9 +3,11 @@ import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
+import { useToast } from '@/composables/useToast.js'
 
 const auth = useAuthStore()
 const settings = useSettingsStore()
+const toast = useToast()
 
 const fullName = ref(auth.user?.user_metadata?.full_name || '')
 const avatarUrl = ref(auth.user?.user_metadata?.avatar_url || '')
@@ -25,14 +27,24 @@ watch(() => settings.saved, (val) => {
 })
 
 async function saveProfile() {
-  await settings.saveProfile({
-    fullName: fullName.value,
-    avatarUrl: avatarUrl.value,
-  })
+  try {
+    await settings.saveProfile({
+      fullName: fullName.value,
+      avatarUrl: avatarUrl.value,
+    })
+    toast.success('Profile saved successfully')
+  } catch (err) {
+    toast.error('Failed to save profile: ' + (err.message || 'Unknown error'))
+  }
 }
 
 async function saveSettings() {
-  await settings.save()
+  try {
+    await settings.save()
+    toast.success('Settings saved')
+  } catch (err) {
+    toast.error('Failed to save settings')
+  }
 }
 
 const countryOptions = [

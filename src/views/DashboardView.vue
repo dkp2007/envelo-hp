@@ -5,16 +5,29 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { groq } from '@/lib/groq'
 import { useFinance } from '@/composables/useFinance.js'
+import StateDisplay from '@/components/StateDisplay.vue'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
+import { useToast } from '@/composables/useToast.js'
+
+const toast = useToast()
 const {
   loading, fetchAll,
   monthIncome, monthExpenses, monthSavings, monthSavingsRate,
   spendingByCategory, topExpenses, budgetData, savingsGoals,
 } = useFinance()
 
-onMounted(() => { fetchAll() })
+const loadError = ref('')
+
+onMounted(async () => {
+  try {
+    await fetchAll()
+  } catch (err) {
+    loadError.value = err.message || 'Failed to load dashboard data'
+    toast.error('Failed to load dashboard data')
+  }
+})
 
 // Stats derived from real data
 const stats = computed(() => [
@@ -162,7 +175,9 @@ Do NOT use code blocks. Use **bold** for section titles and bullet points for it
     })
     aiResult.value = res.choices[0]?.message?.content || 'No response generated.'
   } catch (e) {
-    aiError.value = e.message || 'Something went wrong. Please try again.'
+    const msg = e.message || 'Something went wrong. Please try again.'
+    aiError.value = msg
+    toast.error(msg)
   } finally {
     generating.value = false
   }
@@ -187,11 +202,11 @@ function formatResult(text) {
 <template>
   <DashboardLayout>
     <div class="dashboard">
+      <!-- Error -->
+      <StateDisplay v-if="loadError && !loading" type="error" :message="loadError" action-label="Retry" @action="loadError = ''; fetchAll()" />
+
       <!-- Loading -->
-      <div v-if="loading" class="loading-page">
-        <span class="spinner-lg"></span>
-        <p>Loading your dashboard...</p>
-      </div>
+      <StateDisplay v-else-if="loading" type="loading" />
 
       <template v-else>
         <!-- Stats Row -->

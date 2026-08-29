@@ -24,6 +24,7 @@ export function useFinance() {
     if (!auth.user) return
     loading.value = true
 
+    try {
     const [txRes, catRes, budRes, goalRes] = await Promise.all([
       supabase
         .from('transactions')
@@ -48,7 +49,11 @@ export function useFinance() {
     categories.value = catRes.data || []
     budgets.value = budRes.data || []
     savingsGoals.value = goalRes.data || []
-    loading.value = false
+    } catch (err) {
+      console.error('Failed to fetch finance data:', err)
+    } finally {
+      loading.value = false
+    }
   }
 
   // ── Delete transaction ──

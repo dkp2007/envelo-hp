@@ -155,7 +155,7 @@ Do NOT use code blocks. Use **bold** for section titles and bullet points for it
 
   try {
     const res = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-70b-versatile',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       max_tokens: 1500,

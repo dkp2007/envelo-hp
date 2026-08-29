@@ -49,6 +49,26 @@ export function useFinance() {
     categories.value = catRes.data || []
     budgets.value = budRes.data || []
     savingsGoals.value = goalRes.data || []
+
+    // Auto-seed if user has no data yet
+    if (categories.value.length === 0 && transactions.value.length === 0) {
+      try {
+        await supabase.rpc('seed_demo_data', { p_user_id: auth.user.id })
+        // Re-fetch after seeding
+        const [tx2, cat2, bud2, goal2] = await Promise.all([
+          supabase.from('transactions').select('id, name, amount, type, date, notes, bill_path, merchant, category_id, categories(name, icon, color, parent_id, type)').eq('user_id', auth.user.id).order('date', { ascending: false }),
+          supabase.from('categories').select('id, name, icon, color, parent_id, type').eq('user_id', auth.user.id),
+          supabase.from('budgets').select('id, category_id, amount, spent, month').eq('user_id', auth.user.id),
+          supabase.from('savings_goals').select('id, name, target, current, icon, deadline').eq('user_id', auth.user.id),
+        ])
+        transactions.value = tx2.data || []
+        categories.value = cat2.data || []
+        budgets.value = bud2.data || []
+        savingsGoals.value = goal2.data || []
+      } catch (e) {
+        console.warn('Auto-seed failed:', e)
+      }
+    }
     } catch (err) {
       console.error('Failed to fetch finance data:', err)
     } finally {

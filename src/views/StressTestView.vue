@@ -11,7 +11,7 @@ const { loading: financeLoading, fetchAll, monthIncome, monthExpenses, monthSavi
 
 onMounted(async () => {
   await fetchAll()
-  // Auto-populate from real data
+  // Populate from real data
   if (monthIncome.value > 0) {
     snapshotIncome.value = monthIncome.value
     snapshotExpenses.value = monthExpenses.value
@@ -20,42 +20,48 @@ onMounted(async () => {
     budgets.value = budgetData.value.map(b => ({
       name: b.name, icon: b.icon, amount: b.spent || 0, essential: ['Rent', 'Food', 'Utilities'].includes(b.name),
     }))
+  } else {
+    // Fallback: use spending by category
+    const { spendingByCategory } = useFinance()
+    if (spendingByCategory.value.length > 0) {
+      budgets.value = spendingByCategory.value.map(c => ({
+        name: c.name, icon: c.icon, amount: c.spent || 0, essential: ['Rent', 'Food', 'Utilities'].includes(c.name),
+      }))
+    }
   }
   const totalSaved = savingsGoals.value.reduce((s, g) => s + Number(g.current), 0)
-  if (totalSaved > 0) snapshotSavings.value = totalSaved
+  snapshotSavings.value = totalSaved
+  initScenarios()
   fetchHistory()
 })
 
-// ── Financial Snapshot ──
-const snapshotIncome = ref(58000)
-const snapshotExpenses = ref(28450)
-const snapshotSavings = ref(120000)
+// ── Financial Snapshot (start at 0, populated from DB) ──
+const snapshotIncome = ref(0)
+const snapshotExpenses = ref(0)
+const snapshotSavings = ref(0)
 
 const surplus = computed(() => snapshotIncome.value - snapshotExpenses.value)
 const savingsRate = computed(() => snapshotIncome.value ? Math.round((surplus.value / snapshotIncome.value) * 100) : 0)
 const emergencyFund = computed(() => snapshotExpenses.value * 3)
 const emergencyMonths = computed(() => snapshotExpenses.value ? Math.floor(snapshotSavings.value / snapshotExpenses.value) : 0)
 
-// ── Budget Breakdown ──
-const budgets = ref([
-  { name: 'Rent', icon: '🏠', amount: 12000, essential: true },
-  { name: 'Food', icon: '🍔', amount: 2750, essential: true },
-  { name: 'Fun', icon: '🎮', amount: 4250, essential: false },
-  { name: 'Utilities', icon: '💡', amount: 2500, essential: true },
-  { name: 'Subscriptions', icon: '📱', amount: 649, essential: false },
-  { name: 'Transport', icon: '🚗', amount: 1800, essential: false },
-  { name: 'Savings', icon: '💰', amount: 4501, essential: false },
-])
+// ── Budget Breakdown (populated from DB) ──
+const budgets = ref([])
 
-// ── Scenarios ──
-const scenarios = ref([
-  { id: 'medical', title: 'Unexpected Medical Expense', icon: '🏥', description: 'A sudden medical bill pops up this month.', impact: 5000, type: 'expense', color: '#d32f2f', min: 1000, max: 50000, step: 1000, tip: 'Use your emergency fund. If short, negotiate a payment plan with the hospital.' },
-  { id: 'income-cut', title: 'Income Reduction', icon: '📉', description: 'Your monthly income drops for the next 3 months.', impact: 5800, type: 'income', color: '#fb923c', min: 1000, max: 30000, step: 500, tip: 'Immediately cut non-essential spending (Fun, Subscriptions, Transport). Pause savings contributions temporarily.' },
-  { id: 'emergency', title: 'Major Emergency Expense', icon: '🚨', description: 'A large emergency hits — car repair, home damage, etc.', impact: 15000, type: 'expense', color: '#e91e63', min: 5000, max: 100000, step: 1000, tip: 'Prioritize essentials only. Reduce Food budget by ordering less, pause Fun and Subscriptions entirely.' },
-  { id: 'big-purchase', title: 'Major One-Time Purchase', icon: '🛒', description: 'You need a big purchase — laptop, furniture, appliance.', impact: 25000, type: 'expense', color: '#9c27b0', min: 5000, max: 200000, step: 1000, tip: 'Spread across 2-3 months by reducing non-essentials. Consider EMI if interest-free option is available.' },
-  { id: 'job-loss', title: 'Job Loss (2 Months)', icon: '💼', description: 'You lose your job and are unemployed for 2 months.', impact: 58000, type: 'income', color: '#202124', min: 10000, max: 200000, step: 2000, tip: 'Cut all non-essential spending immediately. Cancel subscriptions. Start job hunting aggressively.' },
-  { id: 'rent-hike', title: 'Rent Increase', icon: '🏠', description: 'Your landlord increases rent by a percentage.', impact: 3000, type: 'expense', color: '#ff9800', min: 500, max: 15000, step: 500, tip: 'Negotiate with your landlord. If not possible, offset by reducing other categories.' },
-])
+// ── Scenarios (populated from real income after data loads) ──
+const scenarios = ref([])
+
+function initScenarios() {
+  const inc = snapshotIncome.value || 30000
+  scenarios.value = [
+    { id: 'medical', title: 'Unexpected Medical Expense', icon: '🏥', description: 'A sudden medical bill pops up this month.', impact: 5000, type: 'expense', color: '#d32f2f', min: 1000, max: Math.max(50000, inc), step: 1000, tip: 'Use your emergency fund. If short, negotiate a payment plan with the hospital.' },
+    { id: 'income-cut', title: 'Income Reduction', icon: '📉', description: 'Your monthly income drops for the next 3 months.', impact: Math.round(inc * 0.1), type: 'income', color: '#fb923c', min: 1000, max: inc, step: 500, tip: 'Immediately cut non-essential spending (Fun, Subscriptions, Transport). Pause savings contributions temporarily.' },
+    { id: 'emergency', title: 'Major Emergency Expense', icon: '🚨', description: 'A large emergency hits — car repair, home damage, etc.', impact: 15000, type: 'expense', color: '#e91e63', min: 5000, max: Math.max(100000, inc * 2), step: 1000, tip: 'Prioritize essentials only. Reduce Food budget by ordering less, pause Fun and Subscriptions entirely.' },
+    { id: 'big-purchase', title: 'Major One-Time Purchase', icon: '🛒', description: 'You need a big purchase — laptop, furniture, appliance.', impact: 25000, type: 'expense', color: '#9c27b0', min: 5000, max: Math.max(200000, inc * 3), step: 1000, tip: 'Spread across 2-3 months by reducing non-essentials. Consider EMI if interest-free option is available.' },
+    { id: 'job-loss', title: 'Job Loss (2 Months)', icon: '💼', description: 'You lose your job and are unemployed for 2 months.', impact: inc * 2, type: 'income', color: '#202124', min: Math.round(inc * 0.5), max: inc * 4, step: Math.round(inc * 0.05), tip: 'Cut all non-essential spending immediately. Cancel subscriptions. Start job hunting aggressively.' },
+    { id: 'rent-hike', title: 'Rent Increase', icon: '🏠', description: 'Your landlord increases rent by a percentage.', impact: 3000, type: 'expense', color: '#ff9800', min: 500, max: Math.max(15000, Math.round(inc * 0.3)), step: 500, tip: 'Negotiate with your landlord. If not possible, offset by reducing other categories.' },
+  ]
+}
 
 // ── Results ──
 const results = computed(() => {

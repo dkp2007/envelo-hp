@@ -65,6 +65,37 @@ function switchTab(tab) {
   successMessage.value = ''
   initCaptcha()
 }
+
+// Deterministic firefly positions using a seeded approach
+const fireflyPositions = [
+  { x: 8, y: 12 }, { x: 85, y: 8 }, { x: 12, y: 75 }, { x: 90, y: 70 },
+  { x: 5, y: 45 }, { x: 92, y: 40 }, { x: 20, y: 5 }, { x: 78, y: 88 },
+  { x: 15, y: 90 }, { x: 88, y: 15 }, { x: 3, y: 60 }, { x: 95, y: 55 },
+  { x: 25, y: 82 }, { x: 75, y: 5 }, { x: 10, y: 30 }, { x: 82, y: 92 },
+  { x: 30, y: 15 }, { x: 70, y: 78 },
+]
+
+function fireflyStyle(n) {
+  const pos = fireflyPositions[(n - 1) % fireflyPositions.length]
+  const size = 3 + (n % 4) * 1.5 // 3px to 7.5px
+  const delay = (n * 1.3) % 8
+  const duration = 6 + (n % 5) * 2 // 6s to 14s
+  const driftX = -15 + (n % 7) * 5 // horizontal drift
+  const driftY = -20 + (n % 6) * 7 // vertical drift
+  const glowColor = n % 3 === 0 ? '215, 243, 74' : n % 3 === 1 ? '255, 235, 120' : '200, 240, 100'
+  return {
+    left: pos.x + '%',
+    top: pos.y + '%',
+    width: size + 'px',
+    height: size + 'px',
+    animationDelay: delay + 's',
+    animationDuration: duration + 's',
+    '--drift-x': driftX + 'px',
+    '--drift-y': driftY + 'px',
+    '--glow-color': `rgba(${glowColor}, 0.8)`,
+    '--glow-spread': `rgba(${glowColor}, 0.3)`,
+  }
+}
 </script>
 
 <template>
@@ -75,6 +106,10 @@ function switchTab(tab) {
       <span class="shape shape-3"></span>
       <span class="shape shape-4"></span>
       <span class="shape shape-5"></span>
+    </div>
+    <!-- Fireflies -->
+    <div class="fireflies" aria-hidden="true">
+      <span v-for="n in 18" :key="n" class="firefly" :style="fireflyStyle(n)"></span>
     </div>
     <div class="auth-card">
       <div class="card-accent"></div>
@@ -246,6 +281,62 @@ function switchTab(tab) {
 @keyframes float {
   0%, 100% { transform: translateY(0) scale(1); }
   50% { transform: translateY(-20px) scale(1.05); }
+}
+
+/* ─── Fireflies ─── */
+.fireflies {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.firefly {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--glow-color);
+  box-shadow:
+    0 0 6px 2px var(--glow-color),
+    0 0 16px 4px var(--glow-spread);
+  animation:
+    fireflyDrift var(--duration, 8s) ease-in-out var(--delay, 0s) infinite alternate,
+    fireflyGlow var(--duration, 8s) ease-in-out var(--delay, 0s) infinite alternate;
+  opacity: 0;
+}
+
+@keyframes fireflyDrift {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(var(--drift-x, 10px), var(--drift-y, -15px)) scale(1.2);
+    opacity: 1;
+  }
+  85% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(calc(var(--drift-x, 10px) * -0.6), calc(var(--drift-y, -15px) * -0.8)) scale(0.8);
+    opacity: 0;
+  }
+}
+
+@keyframes fireflyGlow {
+  0%, 100% {
+    box-shadow:
+      0 0 6px 2px var(--glow-color),
+      0 0 16px 4px var(--glow-spread);
+  }
+  50% {
+    box-shadow:
+      0 0 10px 4px var(--glow-color),
+      0 0 24px 8px var(--glow-spread);
+  }
 }
 
 .auth-card {

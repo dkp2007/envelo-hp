@@ -1,12 +1,16 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notifications'
 
 const auth = useAuthStore()
+const notifStore = useNotificationStore()
 const route = useRoute()
 const router = useRouter()
 const showProfileMenu = ref(false)
+const showNotifPanel = ref(false)
+const expandedNotif = ref(null)
 const collapsed = ref(true)
 const sidebarRef = ref(null)
 let isOverSidebar = false
@@ -51,6 +55,41 @@ const profileMenuItems = [
 
 function toggleProfileMenu() {
   showProfileMenu.value = !showProfileMenu.value
+  if (showProfileMenu.value) showNotifPanel.value = false
+}
+
+function timeAgo(dateStr) {
+  const now = new Date()
+  const d = new Date(dateStr)
+  const diff = Math.floor((now - d) / 1000)
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago'
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago'
+  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago'
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
+
+function toggleNotifPanel() {
+  showNotifPanel.value = !showNotifPanel.value
+  if (showNotifPanel.value) {
+    showProfileMenu.value = false
+    // Mark all as read when opening
+    setTimeout(() => notifStore.markAllRead(), 2000)
+  }
+}
+
+function expandNotif(id) {
+  expandedNotif.value = expandedNotif.value === id ? null : id
+  notifStore.markRead(id)
+}
+
+function handleNotifClick(notif) {
+  if (notif.action_url) {
+    showNotifPanel.value = false
+    router.push(notif.action_url)
+  } else {
+    expandNotif(notif.id)
+  }
 }
 
 async function handleMenuAction(action) {
@@ -67,6 +106,8 @@ async function handleMenuAction(action) {
 
 onMounted(() => {
   document.addEventListener('mousemove', checkMousePosition)
+  // Load notifications and generate alerts from real data
+  notifStore.fetchAll().then(() => notifStore.generateAlerts())
 })
 
 onUnmounted(() => {
@@ -76,7 +117,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="dashboard-layout" @click.self="showProfileMenu = false">
+  <div class="dashboard-layout" @click.self="showProfileMenu = false; showNotifPanel = false">
     <aside
       ref="sidebarRef"
       class="sidebar"
@@ -111,6 +152,57 @@ onUnmounted(() => {
       <header class="topbar">
         <h2 class="topbar-title">{{ route.meta.title || 'Overview' }}</h2>
         <div class="topbar-right">
+          <!-- Bell Icon -->
+          <div class="notif-wrap">
+            <button class="notif-btn" @click="toggleNotifPanel">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span v-if="notifStore.unreadCount > 0" class="notif-badge">{{ notifStore.unreadCount > 9 ? '9+' : notifStore.unreadCount }}</span>
+            </button>
+
+            <!-- Notification Panel -->
+            <div v-if="showNotifPanel" class="notif-panel">
+              <div class="notif-panel-header">
+                <h3 class="notif-panel-title">Notifications</h3>
+                <button v-if="notifStore.notifications.length > 0" class="notif-clear" @click="notifStore.clearAll()">Clear all</button>
+              </div>
+
+              <div v-if="notifStore.loading" class="notif-loading">
+                <span class="notif-spinner"></span>
+              </div>
+
+              <div v-else-if="notifStore.notifications.length === 0" class="notif-empty">
+                <span class="notif-empty-icon">🔔</span>
+                <p>No notifications yet</p>
+              </div>
+
+              <div v-else class="notif-list">
+                <div
+                  v-for="n in notifStore.notifications"
+                  :key="n.id"
+                  class="notif-item"
+                  :class="{ unread: !n.read, expanded: expandedNotif === n.id }"
+                  @click="handleNotifClick(n)"
+                >
+                  <div class="notif-item-top">
+                    <span class="notif-icon">{{ n.icon }}</span>
+                    <div class="notif-content">
+                      <p class="notif-title">{{ n.title }}</p>
+                      <p class="notif-time">{{ timeAgo(n.created_at) }}</p>
+                    </div>
+                    <button v-if="expandedNotif !== n.id" class="notif-expand" @click.stop="expandNotif(n.id)">›</button>
+                    <button class="notif-delete" @click.stop="notifStore.remove(n.id)">✕</button>
+                  </div>
+                  <div v-if="expandedNotif === n.id" class="notif-body">
+                    <p class="notif-message">{{ n.message }}</p>
+                    <button v-if="n.action_url" class="notif-action" @click.stop="handleNotifClick(n)">
+                      View Details →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="profile-wrap">              <button class="profile-btn" @click.stop="toggleProfileMenu">
               <img
                 v-if="auth.user?.user_metadata?.avatar_url"
@@ -410,6 +502,234 @@ onUnmounted(() => {
   transform: rotate(180deg);
 }
 
+/* ─── Notifications ─── */
+.notif-wrap { position: relative; }
+
+.notif-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.notif-btn:hover { background: var(--color-bg); color: var(--color-text); }
+
+.notif-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  color: #fff;
+  background: #d32f2f;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.notif-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: -60px;
+  width: 380px;
+  max-height: 480px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  animation: dropIn 0.15s ease-out;
+}
+
+.notif-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-bg);
+}
+
+.notif-panel-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.notif-clear {
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.notif-clear:hover { color: #d32f2f; }
+
+.notif-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.notif-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid var(--color-border);
+  border-top-color: var(--color-graphite);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.notif-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.notif-empty-icon { font-size: 1.5rem; opacity: 0.5; }
+
+.notif-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.notif-item {
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--color-bg);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.notif-item:hover { background: rgba(0, 0, 0, 0.02); }
+
+.notif-item.unread {
+  background: rgba(215, 243, 74, 0.06);
+}
+
+.notif-item-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.notif-icon {
+  font-size: 1.125rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.notif-content { flex: 1; min-width: 0; }
+
+.notif-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.notif-time {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  margin-top: 0.125rem;
+}
+
+.notif-expand {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s, color 0.15s;
+}
+
+.notif-expand:hover { color: var(--color-text); }
+
+.notif-item.expanded .notif-expand { transform: rotate(90deg); }
+
+.notif-delete {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: var(--color-grey);
+  font-size: 0.625rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.notif-item:hover .notif-delete { opacity: 1; }
+.notif-delete:hover { color: #d32f2f; }
+
+.notif-body {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-bg);
+  animation: fadeUp 0.2s ease;
+}
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+.notif-message {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.notif-action {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--color-graphite);
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.notif-action:hover { background: var(--color-accent-hover); }
+
+/* ─── Profile Dropdown ─── */
 .profile-dropdown {
   position: absolute;
   top: calc(100% + 6px);

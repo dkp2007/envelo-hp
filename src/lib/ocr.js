@@ -56,20 +56,22 @@ export async function parseBillWithAI(ocrText) {
       messages: [
         {
           role: 'system',
-          content: `You are an expert receipt/bill parser. Parse Indian store receipts and bills.
+          content: `You are an expert Indian receipt/bill parser. Extract structured data from OCR text of receipts, invoices, and bills.
 
-Given OCR text from a receipt image, extract structured data.
-The OCR text may have garbage, page numbers, headers, or noise — find the actual bill.
+CRITICAL RULES:
+1. IGNORE all noise: page numbers, QR codes, barcode text, 'Page X of Y', 'Thank you', 'www.', email addresses, phone numbers, GSTIN numbers
+2. The AMOUNT must be a real positive number greater than 0. Look for these keywords in order of priority:
+   - GRAND TOTAL, TOTAL AMOUNT, NET AMOUNT, AMOUNT PAYABLE, BILL TOTAL
+   - Then: SUB TOTAL, SUBTOTAL, TOTAL
+   - Then: CASH, CARD, UPI, PAYMENT amounts
+   - NEVER return 0. If you cannot find any amount, return null
+3. The NAME should be a SHORT description of what was purchased (max 40 chars). Examples: 'Big Bazaar Groceries', 'Swiggy Order', 'PVR Tickets', 'Amazon Purchase'. NEVER use invoice numbers, 'Tax Invoice', or page headers.
+4. The MERCHANT is the store/company name from the TOP of the receipt. Usually the first meaningful line after noise. Examples: 'Big Bazaar', 'DMart', 'Reliance Fresh', 'Akash Enterprises'. NEVER return garbage text.
+5. The DATE should be the bill/invoice date in YYYY-MM-DD format. Common Indian formats: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, DD MMM YYYY. Use null if not found.
+6. The CATEGORY is inferred from items: groceries/food items → Food, clothes/shoes → Fun, electronics/gadgets → Fun, rent/housing → Rent, medicines → Rent, travel → Fun. One of: Rent, Food, Fun, Savings, Other.
 
 Return ONLY a valid JSON object (no markdown, no code fences, no explanation):
-{"name":"描述","amount":1234.56,"date":"2025-08-29","category":"Food","merchant":"Store Name"}
-
-Field rules:
-- name: SHORT description of the purchase (e.g. "Big Bazaar Groceries", "Swiggy Food Order", "PVR Movie Tickets"). DO NOT include page numbers, invoice numbers, or 'Tax Invoice' headers. Max 40 chars.
-- amount: The FINAL/TOTAL amount to pay as a number (no currency symbol). Look for: Total, Grand Total, Amount Payable, Net Amount, Balance Due, Bill Total. If multiple amounts exist, pick the largest final amount. Round to nearest integer if decimal.
-- date: Purchase date as YYYY-MM-DD. Look for Date, Invoice Date, Bill Date. Use null if not found.
-- category: Infer from items purchased. Examples: groceries/food items → Food, clothes/shoes → Fun, electronics → Fun, rent/housing → Rent, medicines → Rent. One of: Rent, Food, Fun, Savings, Salary, Freelance, Other.
-- merchant: Store/company name from the TOP of the receipt (first few lines). Use null if not found.`
+{"name":"Big Bazaar Groceries","amount":1234,"date":"2025-08-29","category":"Food","merchant":"Big Bazaar"}`
         },
         {
           role: 'user',
@@ -111,26 +113,36 @@ Field rules:
 function parseBillFallback(text) {
   if (!text) return { name: null, amount: null, date: null, category: null, merchant: null }
 
-  // Find amount: ₹, Rs, INR, or keywords like Total, Amount
+  // Find amount — try multiple strategies
   let amount = null
   const amountPatterns = [
+    // Priority 1: Total keywords (most reliable)
+    /(?:grand\s*total|total\s*amount|net\s*amount|amount\s*payable|bill\s*total|total\s*due)[:\s]*(?:₹|Rs\.?|INR)?\s*([\d,]+\.?\d*)/i,
+    // Priority 2: Just 'total'
+    /(?:total|sub\s*total|subtotal)[:\s]*(?:₹|Rs\.?|INR)?\s*([\d,]+\.?\d*)/i,
+    // Priority 3: Currency symbol before number
     /(?:₹|Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
-    /(?:total|grand total|amount due|balance due|net amount)[:\s]*(?:₹|Rs\.?|INR)?\s*([\d,]+\.?\d*)/i,
+    // Priority 4: Number before currency
     /([\d,]+\.?\d*)\s*(?:₹|Rs|INR)/i,
+    // Priority 5: Payment method amounts
+    /(?:cash|card|upi|payment)[:\s]*(?:₹|Rs\.?|INR)?\s*([\d,]+\.?\d*)/i,
   ]
   for (const pat of amountPatterns) {
-    const m = text.match(pat)
-    if (m) {
-      amount = parseFloat(m[1].replace(/,/g, ''))
-      if (amount > 0 && amount < 10000000) break
-      amount = null
+    const matches = text.matchAll(new RegExp(pat.source, 'gi'))
+    for (const m of matches) {
+      const val = parseFloat(m[1].replace(/,/g, ''))
+      if (val > 0 && val < 10000000) {
+        amount = val
+        break
+      }
     }
+    if (amount) break
   }
 
   // Find date
   let date = null
   const datePatterns = [
-    /(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/,
+    /(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/,
     /(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(\d{2,4})/i,
   ]
   for (const pat of datePatterns) {
@@ -146,10 +158,11 @@ function parseBillFallback(text) {
     }
   }
 
-  // First meaningful line as name/merchant
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2 && !l.match(/^[\d\s\-/:.]+$/))
+  // Filter noise lines for name/merchant
+  const noisePattern = /page|thank|welcome|www\.|invoice\s*no|bill\s*no|gst|tax\s*inv|qr|barcode|\d{10,}/i
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2 && !l.match(/^[\d\s\-/:.]+$/) && !noisePattern.test(l))
   const name = lines[0]?.substring(0, 60) || null
-  const merchant = lines.find(l => l.length > 3 && !l.match(/total|amount|date|invoice|bill/i))?.substring(0, 40) || null
+  const merchant = lines.find(l => l.length > 3 && !l.match(/total|amount|date|invoice|bill|qty|rate|item/i))?.substring(0, 40) || null
 
   return { name, amount, date, category: null, merchant }
 }

@@ -1,10 +1,12 @@
 -- ============================================================
--- MIGRATION 011: Create demo data seed function
+-- MIGRATION 012: Fix seed function to work from SQL Editor
 -- ============================================================
--- Run this in Supabase SQL Editor if the CLI fails:
--- SELECT public.seed_demo_data();
+-- Usage from SQL Editor:
+--   SELECT public.seed_demo_data('df7b3acf-3da3-4946-8e8b-f684a9b310db');
+-- Or from the app (logged in):
+--   SELECT public.seed_demo_data();
 
-CREATE OR REPLACE FUNCTION public.seed_demo_data()
+CREATE OR REPLACE FUNCTION public.seed_demo_data(p_user_id uuid DEFAULT NULL)
 RETURNS void AS $fn$
 DECLARE
   v_user_id uuid;
@@ -38,8 +40,9 @@ DECLARE
   v_jul1 date := '2025-07-01';
   v_aug1 date := '2025-08-01';
 BEGIN
-  v_user_id := auth.uid();
-  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  -- Use provided user_id, or fall back to auth.uid()
+  v_user_id := COALESCE(p_user_id, auth.uid());
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated. Pass user_id as parameter when calling from SQL Editor.'; END IF;
   IF EXISTS (SELECT 1 FROM public.categories WHERE user_id = v_user_id LIMIT 1) THEN RETURN; END IF;
 
   -- EXPENSE PARENTS

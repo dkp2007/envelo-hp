@@ -1,10 +1,11 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useHcaptcha } from '@/composables/useHcaptcha'
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha'
 
 const auth = useAuthStore()
-const { render: renderHcaptcha, getToken, hasValidToken, error: captchaError, isLocalhost } = useHcaptcha()
+const { siteKey, getToken, hasValidToken, onVerify, onExpire, onError, error: captchaError, isLocalhost } = useHcaptcha()
 
 const activeTab = ref('signin')
 const email = ref('')
@@ -14,14 +15,18 @@ const loading = ref(false)
 const error = ref('')
 const successMessage = ref('')
 
-function initCaptcha() {
-  if (isLocalhost) return
-  nextTick(() => {
-    renderHcaptcha('hcaptcha-container')
-  })
-}
+// Refs to hCaptcha component instances
+const signInCaptcha = ref(null)
+const signUpCaptcha = ref(null)
 
-onMounted(initCaptcha)
+function resetCaptcha() {
+  if (isLocalhost) return
+  if (activeTab.value === 'signin' && signInCaptcha.value) {
+    signInCaptcha.value.reset()
+  } else if (signUpCaptcha.value) {
+    signUpCaptcha.value.reset()
+  }
+}
 
 async function handleGoogleLogin() {
   error.value = ''
@@ -47,6 +52,7 @@ async function handleEmailSignIn() {
     await auth.signInWithEmail(email.value, password.value, getToken())
   } catch (err) {
     error.value = err.message
+    resetCaptcha()
   } finally {
     loading.value = false
   }
@@ -67,6 +73,7 @@ async function handleEmailSignUp() {
     password.value = ''
   } catch (err) {
     error.value = err.message
+    resetCaptcha()
   } finally {
     loading.value = false
   }
@@ -76,7 +83,6 @@ function switchTab(tab) {
   activeTab.value = tab
   error.value = ''
   successMessage.value = ''
-  initCaptcha()
 }
 
 // Deterministic firefly positions using a seeded approach
@@ -90,15 +96,13 @@ const fireflyPositions = [
 
 function fireflyStyle(n) {
   const pos = fireflyPositions[(n - 1) % fireflyPositions.length]
-  const size = 1.5 + (n % 3) * 0.8 // 1.5px to 3.1px
+  const size = 1.5 + (n % 3) * 0.8
   const delay = (n * 1.3) % 8
-  const duration = 6 + (n % 5) * 2 // 6s to 14s
-  // Random directions for each firefly
-  const angle = ((n * 137.508) % 360) * (Math.PI / 180) // golden angle spread
-  const distance = 20 + (n % 5) * 10 // 20–60px travel
+  const duration = 6 + (n % 5) * 2
+  const angle = ((n * 137.508) % 360) * (Math.PI / 180)
+  const distance = 20 + (n % 5) * 10
   const driftX = Math.round(Math.cos(angle) * distance)
   const driftY = Math.round(Math.sin(angle) * distance)
-  // All acid yellow: #D7F34A
   return {
     left: pos.x + '%',
     top: pos.y + '%',
@@ -131,7 +135,7 @@ function fireflyStyle(n) {
       <div class="card-accent"></div>
       <div class="auth-brand">
         <img src="/icon.png" alt="" class="auth-icon" />
-        <img src="/wordmark.png" alt="Envelop" class="auth-wordmark" />
+        <img src="/wordmark.png" alt="Envelo" class="auth-wordmark" />
       </div>
 
       <div class="auth-form-wrap">
@@ -166,6 +170,7 @@ function fireflyStyle(n) {
           </button>
         </div>
 
+        <!-- Sign In Form -->
         <form v-if="activeTab === 'signin'" class="auth-form" @submit.prevent="handleEmailSignIn">
           <input
             v-model="email"
@@ -188,7 +193,15 @@ function fireflyStyle(n) {
               <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             </button>
           </div>
-          <div v-if="!isLocalhost" id="hcaptcha-container" class="hcaptcha-wrap"></div>
+          <div v-if="!isLocalhost" class="hcaptcha-wrap">
+            <VueHcaptcha
+              ref="signInCaptcha"
+              :sitekey="siteKey"
+              @verify="onVerify"
+              @expired="onExpire"
+              @error="onError"
+            />
+          </div>
           <p v-if="captchaError" class="error">{{ captchaError }}</p>
           <p v-if="error" class="error">{{ error }}</p>
           <button type="submit" class="submit-btn" :disabled="loading">
@@ -196,6 +209,7 @@ function fireflyStyle(n) {
           </button>
         </form>
 
+        <!-- Sign Up Form -->
         <form v-else class="auth-form" @submit.prevent="handleEmailSignUp">
           <input
             v-model="email"
@@ -218,7 +232,15 @@ function fireflyStyle(n) {
               <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             </button>
           </div>
-          <div v-if="!isLocalhost" id="hcaptcha-container" class="hcaptcha-wrap"></div>
+          <div v-if="!isLocalhost" class="hcaptcha-wrap">
+            <VueHcaptcha
+              ref="signUpCaptcha"
+              :sitekey="siteKey"
+              @verify="onVerify"
+              @expired="onExpire"
+              @error="onError"
+            />
+          </div>
           <p v-if="captchaError" class="error">{{ captchaError }}</p>
           <p v-if="error" class="error">{{ error }}</p>
           <p v-if="successMessage" class="success">{{ successMessage }}</p>
@@ -601,7 +623,7 @@ function fireflyStyle(n) {
 .hcaptcha-wrap {
   display: flex;
   justify-content: center;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 </style>

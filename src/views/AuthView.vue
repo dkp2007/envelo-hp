@@ -1,10 +1,12 @@
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useHcaptcha } from '@/composables/useHcaptcha'
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha'
 
 const auth = useAuthStore()
+const router = useRouter()
 const { siteKey, consumeToken, hasValidToken, onVerify, onExpire, onError, error: captchaError, isLocalhost } = useHcaptcha()
 
 const activeTab = ref('signin')
@@ -33,7 +35,6 @@ async function handleGoogleLogin() {
     await auth.loginWithGoogle()
   } catch (err) {
     error.value = err.message
-  } finally {
     resetCaptcha()
   }
 }
@@ -43,11 +44,12 @@ async function handleEmailSignIn() {
   loading.value = true
   try {
     await auth.signInWithEmail(email.value, password.value)
+    router.push({ name: 'dashboard' })
   } catch (err) {
     error.value = err.message
+    resetCaptcha()
   } finally {
     loading.value = false
-    resetCaptcha()
   }
 }
 
@@ -62,9 +64,9 @@ async function handleEmailSignUp() {
     password.value = ''
   } catch (err) {
     error.value = err.message
+    resetCaptcha()
   } finally {
     loading.value = false
-    resetCaptcha()
   }
 }
 

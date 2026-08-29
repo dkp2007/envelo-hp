@@ -2,8 +2,12 @@
 import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
+import { supabase } from '@/lib/supabase.js'
+import { useRouter } from 'vue-router'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { useToast } from '@/composables/useToast.js'
+
+const router = useRouter()
 
 const auth = useAuthStore()
 const settings = useSettingsStore()
@@ -35,6 +39,39 @@ async function saveProfile() {
     toast.success('Profile saved successfully')
   } catch (err) {
     toast.error('Failed to save profile: ' + (err.message || 'Unknown error'))
+  }
+}
+
+async function deleteAccount() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    // Delete all user data from tables
+    await supabase.from('transactions').delete().eq('user_id', user.id)
+    await supabase.from('budgets').delete().eq('user_id', user.id)
+    await supabase.from('categories').delete().eq('user_id', user.id)
+    await supabase.from('savings_goals').delete().eq('user_id', user.id)
+    await supabase.from('notifications').delete().eq('user_id', user.id)
+    await supabase.from('stress_test_results').delete().eq('user_id', user.id)
+    await supabase.from('financial_plans').delete().eq('user_id', user.id)
+    await supabase.from('profiles').delete().eq('id', user.id)
+
+    // Delete auth user
+    const { error } = await supabase.auth.admin.deleteUser(user.id)
+    if (error) {
+      // If admin delete fails, just sign out
+      await supabase.auth.signOut()
+      router.push('/')
+      toast.success('Account deleted')
+      return
+    }
+
+    await supabase.auth.signOut()
+    router.push('/')
+    toast.success('Account permanently deleted')
+  } catch (err) {
+    toast.error('Failed to delete account: ' + (err.message || 'Unknown error'))
   }
 }
 
@@ -238,7 +275,7 @@ const dateFormatOptions = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD']
           <p class="modal-text">This action is irreversible. All your data, envelopes, transactions, and goals will be permanently deleted.</p>
           <div class="modal-actions">
             <button class="cancel-btn" @click="showDeleteModal = false">Cancel</button>
-            <button class="delete-btn">Yes, Delete My Account</button>
+            <button class="delete-btn" @click="deleteAccount">Yes, Delete My Account</button>
           </div>
         </div>
       </div>

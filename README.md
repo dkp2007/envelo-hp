@@ -16,6 +16,21 @@ A modern personal finance app built with Vue 3, Supabase, and AI — featuring e
 
 ---
 
+## 🧪 Demo
+
+Try Envelo with a pre-loaded demo account:
+
+| Field | Value |
+|-------|-------|
+| **Email** | `demo@envelo.app` |
+| **Password** | `demo1234` |
+
+The demo account comes with **3 months of realistic transaction data** across Rent, Food, Fun, and Savings categories — including income, expenses, budgets, and savings goals. All features (Analytics, Reports, Stress Test, OCR bill reading, AI Plan) work out of the box.
+
+> **To set up the demo:** Create the user in Supabase Auth, then run `SELECT public.seed_demo_data()` in the SQL Editor.
+
+---
+
 ## ✨ Features
 
 ### 💰 Envelope Budgeting

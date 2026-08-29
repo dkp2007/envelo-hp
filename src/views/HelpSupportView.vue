@@ -154,7 +154,7 @@ async function submitForm() {
                 <select v-model="subject" class="input" required>
                   <option value="" disabled>Select a topic</option>
                   <option value="account">Account Issues</option>
-                  <option value="billing">Billing & Plans</option>
+                  <option value="data">Data & Privacy</option>
                   <option value="feature">Feature Request</option>
                   <option value="bug">Bug Report</option>
                   <option value="other">Other</option>

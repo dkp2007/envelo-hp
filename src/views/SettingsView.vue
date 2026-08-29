@@ -337,18 +337,6 @@ const dateFormatOptions = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD']
   color: var(--color-text-muted);
 }
 
-.plan-badge {
-  display: inline-block;
-  margin-top: 0.375rem;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--color-graphite);
-  background: var(--color-accent);
-  border-radius: 999px;
-  width: fit-content;
-}
-
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;

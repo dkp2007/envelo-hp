@@ -325,53 +325,6 @@ onUnmounted(() => {
   transition: opacity 0.1s ease;
 }
 
-.sidebar-promo {
-  margin: auto 0.75rem 1.25rem;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  text-align: center;
-  opacity: 1;
-  transition: opacity 0.2s ease, margin 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.sidebar.collapsed .sidebar-promo {
-  opacity: 0;
-  margin: 0 0.375rem;
-  padding: 0;
-  transition: opacity 0.1s ease, margin 0.2s cubic-bezier(0.4, 0, 1, 1), padding 0.2s cubic-bezier(0.4, 0, 1, 1);
-}
-
-.promo-icon {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.promo-text {
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  opacity: 0.7;
-  margin-bottom: 1rem;
-}
-
-.promo-btn {
-  width: 100%;
-  padding: 0.625rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  font-family: var(--font-sans);
-  color: var(--color-graphite);
-  background: var(--color-accent);
-  border: none;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.promo-btn:hover {
-  background: var(--color-accent-hover);
-}
-
 .main-area {
   flex: 1;
   display: flex;

@@ -397,20 +397,28 @@ async function confirmOcrTransaction() {
   }
 }
 
-// Edit: fill form from OCR data instead of confirming
+// Edit: fill form from OCR data so user can modify before saving
 function editOcrData() {
   const data = ocrConfirmData.value
   if (!data) return
-  name.value = data.name
-  if (data.amount) amount.value = data.amount
-  if (data.date) date.value = data.date
+
+  // Fill form fields
+  name.value = data.name || ''
+  amount.value = data.amount || ''
+  date.value = data.date || new Date().toISOString().split('T')[0]
+  notes.value = data.merchant ? `Merchant: ${data.merchant}` : ''
+
+  // Set category if found
   if (data.category) {
     selectedParent.value = data.category
     category.value = data.category.id
     subCategories.value = allCategories.value.filter(c => c.parent_id === data.category.id)
   }
+
+  // Keep OCR data for bill upload and raw text storage
+  // but clear the confirmation card
   ocrConfirmData.value = null
-  ocrResult.value = null
+  // Don't clear ocrResult — it has rawText and merchant for the submit
 }
 
 function onDragOver(e) {

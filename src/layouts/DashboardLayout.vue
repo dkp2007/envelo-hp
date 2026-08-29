@@ -296,8 +296,6 @@ onUnmounted(() => {
   margin-right: 0.75rem;
 }
 
-.collapsed .nav-item.active {
-}
 
 .nav-icon {
   font-size: 1.125rem;

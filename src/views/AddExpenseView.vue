@@ -1,6 +1,11 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
+import { supabase } from '@/lib/supabase.js'
+import { useAuthStore } from '@/stores/auth.js'
+import { processBill } from '@/lib/ocr.js'
+
+const auth = useAuthStore()
 
 const type = ref('expense')
 const name = ref('')
@@ -13,25 +18,248 @@ const billFile = ref(null)
 const billPreview = ref(null)
 const dragOver = ref(false)
 
-const expenseCategories = [
-  { value: 'rent', label: '🏠 Rent' },
-  { value: 'food', label: '🍔 Food' },
-  { value: 'fun', label: '🎮 Fun' },
-  { value: 'savings', label: '💰 Savings' },
-]
+// OCR state
+const ocrProcessing = ref(false)
+const ocrProgress = ref(0)
+const ocrResult = ref(null) // { name, amount, date, category, merchant, rawText }
+const ocrError = ref('')
 
-const incomeCategories = [
-  { value: 'salary', label: '💼 Salary' },
-  { value: 'freelance', label: '💻 Freelance' },
-  { value: 'other', label: '📦 Other' },
-]
+const allCategories = ref([])
+const parentCategories = ref([])
+const subCategories = ref([])
+const selectedParent = ref(null)
+const subCategory = ref('')
+const loading = ref(false)
+const success = ref(false)
+const errorMsg = ref('')
 
-const categories = ref(expenseCategories)
+// Uploaded bills
+const uploadedBills = ref([])
+const billsLoading = ref(false)
+
+async function getSignedUrl(path) {
+  if (!path) return null
+  const { data } = await supabase.storage
+    .from('bills')
+    .createSignedUrl(path, 3600) // 1 hour expiry
+  return data?.signedUrl || null
+}
+
+async function fetchBills() {
+  if (!auth.user) return
+  billsLoading.value = true
+  const { data } = await supabase
+    .from('transactions')
+    .select('id, name, amount, type, date, bill_path, categories(name, icon)')
+    .eq('user_id', auth.user.id)
+    .not('bill_path', 'is', null)
+    .order('date', { ascending: false })
+    .limit(20)
+
+  if (data) {
+    // Generate signed URLs for each bill
+    const billsWithUrls = await Promise.all(
+      data.map(async (bill) => {
+        const signedUrl = await getSignedUrl(bill.bill_path)
+        return { ...bill, signedUrl }
+      })
+    )
+    uploadedBills.value = billsWithUrls
+  } else {
+    uploadedBills.value = []
+  }
+  billsLoading.value = false
+}
+
+async function downloadBill(bill) {
+  if (!bill.signedUrl) return
+  const resp = await fetch(bill.signedUrl)
+  const blob = await resp.blob()
+  const ext = bill.bill_path.split('.').pop()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${bill.name.replace(/\s+/g, '_')}.${ext}`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+// Fetch user's categories from DB, split into parents and subs
+async function fetchCategories() {
+  if (!auth.user) return
+  const { data } = await supabase
+    .from('categories')
+    .select('id, name, icon, parent_id, type')
+    .eq('user_id', auth.user.id)
+    .order('name')
+
+  if (data) {
+    allCategories.value = data
+    filterByType(type.value)
+  }
+}
+
+function filterByType(t) {
+  parentCategories.value = allCategories.value.filter(c => !c.parent_id && c.type === t)
+  subCategories.value = []
+  selectedParent.value = null
+  subCategory.value = ''
+  category.value = ''
+}
+
+onMounted(() => {
+  fetchCategories()
+  fetchBills()
+})
+
+function selectParent(cat) {
+  selectedParent.value = cat
+  subCategory.value = ''
+  category.value = cat.id
+  // Find subcategories for this parent
+  subCategories.value = allCategories.value.filter(c => c.parent_id === cat.id)
+}
+
+function selectSub(sub) {
+  subCategory.value = sub.id
+  category.value = sub.id
+}
 
 function switchType(t) {
   type.value = t
-  category.value = ''
-  categories.value = t === 'expense' ? expenseCategories : incomeCategories
+  filterByType(t)
+}
+
+// Upload bill to Supabase Storage — returns the storage path
+async function uploadBill(userId) {
+  if (!billFile.value) return null
+
+  const ext = billFile.value.name.split('.').pop()
+  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+  const { error } = await supabase.storage
+    .from('bills')
+    .upload(path, billFile.value, {
+      contentType: billFile.value.type,
+      upsert: false,
+    })
+
+  if (error) throw error
+  return path // store the path, not the URL
+}
+
+// Submit form
+async function handleSubmit() {
+  if (!auth.user) return
+  if (!name.value.trim()) { errorMsg.value = 'Please enter a name'; return }
+  if (!amount.value || Number(amount.value) <= 0) { errorMsg.value = 'Please enter a valid amount'; return }
+  if (!category.value) { errorMsg.value = 'Please select a category'; return }
+
+  loading.value = true
+  errorMsg.value = ''
+  success.value = false
+
+  try {
+    // Upload bill if present
+    let billPath = null
+    if (billFile.value) {
+      billPath = await uploadBill(auth.user.id)
+    }
+
+    // Insert transaction
+    const { error } = await supabase.from('transactions').insert({
+      user_id: auth.user.id,
+      category_id: category.value,
+      name: name.value.trim(),
+      amount: type.value === 'expense' ? -Math.abs(Number(amount.value)) : Math.abs(Number(amount.value)),
+      type: type.value,
+      date: date.value,
+      notes: notes.value.trim() || null,
+      bill_path: billPath,
+      merchant: ocrResult.value?.merchant || null,
+      ocr_raw_text: ocrResult.value?.rawText || null,
+    })
+
+    if (error) throw error
+
+    success.value = true
+    // Reset form
+    name.value = ''
+    amount.value = ''
+    category.value = ''
+    selectedParent.value = null
+    subCategory.value = ''
+    subCategories.value = []
+    date.value = new Date().toISOString().split('T')[0]
+    notes.value = ''
+    removeFile()
+    ocrResult.value = null
+    ocrError.value = ''
+    fetchBills() // refresh bills list
+
+    setTimeout(() => { success.value = false }, 3000)
+  } catch (err) {
+    errorMsg.value = err.message || 'Failed to save transaction'
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleFile(file) {
+  billFile.value = file
+  billPreview.value = null
+  ocrResult.value = null
+  ocrError.value = ''
+
+  if (file.type.startsWith('image/')) {
+    billPreview.value = URL.createObjectURL(file)
+    // Auto-run OCR on image files
+    runOcr(file)
+  }
+}
+
+async function runOcr(file) {
+  ocrProcessing.value = true
+  ocrProgress.value = 0
+  ocrError.value = ''
+  ocrResult.value = null
+
+  try {
+    const result = await processBill(file, (p) => { ocrProgress.value = p })
+    ocrResult.value = result
+    // Auto-fill form fields from OCR data
+    if (result.name) name.value = result.name
+    if (result.amount) amount.value = result.amount
+    if (result.date) date.value = result.date
+    // Try to match category
+    if (result.category) {
+      const match = allCategories.value.find(
+        c => c.name.toLowerCase() === result.category.toLowerCase() && !c.parent_id
+      )
+      if (match) {
+        selectedParent.value = match
+        category.value = match.id
+        subCategories.value = allCategories.value.filter(c => c.parent_id === match.id)
+      }
+    }
+  } catch (err) {
+    ocrError.value = err.message || 'Failed to read bill'
+  } finally {
+    ocrProcessing.value = false
+  }
+}
+
+function applyOcrField(field, value) {
+  if (field === 'name') name.value = value
+  else if (field === 'amount') amount.value = value
+  else if (field === 'date') date.value = value
+}
+
+function dismissOcrResult() {
+  ocrResult.value = null
+  ocrError.value = ''
 }
 
 function onDragOver(e) {
@@ -55,24 +283,39 @@ function onFileSelect(e) {
   if (file) handleFile(file)
 }
 
-function handleFile(file) {
-  billFile.value = file
-  if (file.type.startsWith('image/')) {
-    billPreview.value = URL.createObjectURL(file)
-  } else {
-    billPreview.value = null
-  }
-}
-
 function removeFile() {
   billFile.value = null
   billPreview.value = null
+}
+
+function isImage(path) {
+  if (!path) return false
+  return /\.(jpg|jpeg|png|webp|gif)$/i.test(path)
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 </script>
 
 <template>
   <DashboardLayout>
     <div class="page">
+      <!-- Success toast -->
+      <Transition name="toast">
+        <div v-if="success" class="toast success">
+          ✅ Transaction added successfully!
+        </div>
+      </Transition>
+
+      <!-- Error toast -->
+      <Transition name="toast">
+        <div v-if="errorMsg" class="toast error" @click="errorMsg = ''">
+          ❌ {{ errorMsg }}
+        </div>
+      </Transition>
+
       <div class="two-col">
         <!-- Left: Form -->
         <div class="form-card">
@@ -93,7 +336,7 @@ function removeFile() {
             </button>
           </div>
 
-          <form class="form" @submit.prevent>
+          <form class="form" @submit.prevent="handleSubmit">
             <div class="field">
               <label class="label">Name</label>
               <input v-model="name" type="text" placeholder="e.g. Grocery shopping" class="input" />
@@ -108,17 +351,50 @@ function removeFile() {
               <label class="label">Category</label>
               <div class="category-grid">
                 <button
-                  v-for="cat in categories"
-                  :key="cat.value"
+                  v-for="cat in parentCategories"
+                  :key="cat.id"
                   type="button"
                   class="cat-btn"
-                  :class="{ active: category === cat.value }"
-                  @click="category = cat.value"
+                  :class="{ active: selectedParent?.id === cat.id }"
+                  @click="selectParent(cat)"
                 >
-                  {{ cat.label }}
+                  {{ cat.icon }} {{ cat.name }}
                 </button>
               </div>
+              <p v-if="parentCategories.length === 0" class="field-hint">
+                No categories found. Run the seed data from your Supabase dashboard first.
+              </p>
             </div>
+
+            <!-- Subcategories appear after selecting a parent -->
+            <Transition name="subcat-slide">
+              <div v-if="subCategories.length > 0" class="field">
+                <label class="label">
+                  Subcategory
+                  <span class="subcat-hint">under {{ selectedParent?.icon }} {{ selectedParent?.name }}</span>
+                </label>
+                <div class="category-grid subcategory-grid">
+                  <button
+                    v-for="sub in subCategories"
+                    :key="sub.id"
+                    type="button"
+                    class="cat-btn subcat-btn"
+                    :class="{ active: subCategory === sub.id }"
+                    @click="selectSub(sub)"
+                  >
+                    {{ sub.icon }} {{ sub.name }}
+                  </button>
+                  <button
+                    type="button"
+                    class="cat-btn subcat-btn skip-btn"
+                    :class="{ active: subCategory === '' && selectedParent }"
+                    @click="subCategory = ''; category = selectedParent.id"
+                  >
+                    General (skip)
+                  </button>
+                </div>
+              </div>
+            </Transition>
 
             <div class="field">
               <label class="label">Date</label>
@@ -131,9 +407,10 @@ function removeFile() {
             </div>
 
             <div class="form-actions">
-              <button type="button" class="cancel-btn">Cancel</button>
-              <button type="submit" class="submit-btn">
-                {{ type === 'expense' ? 'Add Expense' : 'Add Income' }}
+              <button type="button" class="cancel-btn" @click="$router.back()">Cancel</button>
+              <button type="submit" class="submit-btn" :disabled="loading">
+                <span v-if="loading" class="spinner"></span>
+                {{ loading ? 'Saving...' : (type === 'expense' ? 'Add Expense' : 'Add Income') }}
               </button>
             </div>
           </form>
@@ -177,6 +454,125 @@ function removeFile() {
             </div>
             <button class="remove-btn" @click="removeFile">✕</button>
           </div>
+
+          <!-- OCR Processing -->
+          <Transition name="ocr-slide">
+            <div v-if="ocrProcessing" class="ocr-status">
+              <div class="ocr-status-inner">
+                <div class="ocr-spinner"></div>
+                <div class="ocr-status-text">
+                  <span class="ocr-status-title">🔍 Analyzing your bill...</span>
+                  <span class="ocr-status-sub">Running OCR + AI extraction</span>
+                </div>
+              </div>
+              <div class="ocr-progress-bar">
+                <div class="ocr-progress-fill" :style="{ width: ocrProgress + '%' }"></div>
+              </div>
+            </div>
+          </Transition>
+
+          <!-- OCR Result -->
+          <Transition name="ocr-slide">
+            <div v-if="ocrResult && !ocrProcessing" class="ocr-result">
+              <div class="ocr-result-header">
+                <span class="ocr-result-icon">✨</span>
+                <span class="ocr-result-title">Bill data extracted</span>
+                <button class="ocr-dismiss" @click="dismissOcrResult">✕</button>
+              </div>
+              <div class="ocr-fields">
+                <div v-if="ocrResult.name" class="ocr-field">
+                  <span class="ocr-field-label">Name</span>
+                  <span class="ocr-field-value">{{ ocrResult.name }}</span>
+                  <button class="ocr-field-btn" @click="applyOcrField('name', ocrResult.name)">Use</button>
+                </div>
+                <div v-if="ocrResult.amount" class="ocr-field">
+                  <span class="ocr-field-label">Amount</span>
+                  <span class="ocr-field-value">₹{{ ocrResult.amount.toLocaleString() }}</span>
+                  <button class="ocr-field-btn" @click="applyOcrField('amount', ocrResult.amount)">Use</button>
+                </div>
+                <div v-if="ocrResult.date" class="ocr-field">
+                  <span class="ocr-field-label">Date</span>
+                  <span class="ocr-field-value">{{ formatDate(ocrResult.date) }}</span>
+                  <button class="ocr-field-btn" @click="applyOcrField('date', ocrResult.date)">Use</button>
+                </div>
+                <div v-if="ocrResult.merchant" class="ocr-field">
+                  <span class="ocr-field-label">Merchant</span>
+                  <span class="ocr-field-value">{{ ocrResult.merchant }}</span>
+                </div>
+                <div v-if="ocrResult.category" class="ocr-field">
+                  <span class="ocr-field-label">Category</span>
+                  <span class="ocr-field-value">{{ ocrResult.category }}</span>
+                </div>
+              </div>
+            </div>
+          </Transition>
+
+          <!-- OCR Error -->
+          <Transition name="ocr-slide">
+            <div v-if="ocrError && !ocrProcessing" class="ocr-error">
+              <span class="ocr-error-icon">⚠️</span>
+              <span class="ocr-error-text">{{ ocrError }}</span>
+              <button class="ocr-dismiss" @click="ocrError = ''">✕</button>
+            </div>
+          </Transition>
+
+          <!-- Upload tips -->
+          <div class="upload-tips">
+            <h3 class="tips-title">💡 Tips</h3>
+            <ul class="tips-list">
+              <li>Upload bills for record-keeping</li>
+              <li>Bills are stored securely in your private storage</li>
+              <li>You can delete bills from the Transactions tab</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Uploaded Bills -->
+        <div class="bills-card">
+          <div class="bills-header">
+            <h2 class="bills-title">📄 Uploaded Bills</h2>
+            <span class="bills-count" v-if="uploadedBills.length">{{ uploadedBills.length }}</span>
+          </div>
+
+          <div v-if="billsLoading" class="bills-loading">
+            <span class="spinner"></span>
+            <span>Loading bills...</span>
+          </div>
+
+          <div v-else-if="uploadedBills.length === 0" class="bills-empty">
+            <div class="bills-empty-icon">📋</div>
+            <p>No bills uploaded yet</p>
+            <p class="bills-empty-hint">Upload a receipt above and it will appear here</p>
+          </div>
+
+          <div v-else class="bills-list">
+            <div v-for="bill in uploadedBills" :key="bill.id" class="bill-row">
+              <div class="bill-thumb" @click="bill.signedUrl && window.open(bill.signedUrl, '_blank')">
+                <img
+                  v-if="bill.signedUrl && isImage(bill.bill_path)"
+                  :src="bill.signedUrl"
+                  class="bill-thumb-img"
+                  alt="Bill"
+                />
+                <span v-else class="bill-thumb-icon">📄</span>
+              </div>
+              <div class="bill-info">
+                <span class="bill-name">{{ bill.name }}</span>
+                <span class="bill-meta">
+                  {{ bill.categories?.icon }} {{ bill.categories?.name }} · {{ formatDate(bill.date) }}
+                </span>
+              </div>
+              <div class="bill-right">
+                <span class="bill-amount" :class="{ income: bill.type === 'income' }">
+                  {{ bill.type === 'income' ? '+' : '-' }}₹{{ Math.abs(bill.amount).toLocaleString() }}
+                </span>
+                <div class="bill-actions">
+                  <a v-if="bill.signedUrl" :href="bill.signedUrl" target="_blank" class="bill-action-btn view">View</a>
+                  <button v-if="bill.signedUrl" class="bill-action-btn download" @click="downloadBill(bill)">⬇</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -189,6 +585,38 @@ function removeFile() {
   flex-direction: column;
   gap: 1.5rem;
 }
+
+/* Toast notifications */
+.toast {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 1000;
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+.toast.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.toast.error {
+  background: #fce4ec;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.toast-enter-active { transition: all 0.3s ease; }
+.toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from { opacity: 0; transform: translateY(-1rem); }
+.toast-leave-to { opacity: 0; transform: translateY(-1rem); }
 
 .two-col {
   display: grid;
@@ -279,9 +707,15 @@ function removeFile() {
   resize: vertical;
 }
 
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 0.5rem;
 }
 
@@ -297,16 +731,69 @@ function removeFile() {
   cursor: pointer;
   transition: all 0.15s;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cat-btn:hover {
   color: var(--color-text);
+  background: var(--color-surface);
 }
 
 .cat-btn.active {
   border-color: var(--color-graphite);
   color: var(--color-text);
   background: var(--color-surface);
+}
+
+/* Subcategory styles */
+.subcategory-grid {
+  margin-top: 0.25rem;
+}
+
+.subcat-btn {
+  font-size: 0.75rem !important;
+  padding: 0.5rem 0.75rem !important;
+}
+
+.skip-btn {
+  color: var(--color-text-muted);
+  font-style: italic;
+  border-style: dashed;
+}
+
+.skip-btn.active {
+  border-style: solid;
+  color: var(--color-text);
+}
+
+.subcat-hint {
+  font-weight: 400;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.subcat-slide-enter-active {
+  transition: all 0.25s ease;
+}
+.subcat-slide-leave-active {
+  transition: all 0.2s ease;
+}
+.subcat-slide-enter-from {
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  max-height: 0;
+}
+.subcat-slide-enter-to {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 200px;
+}
+.subcat-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  max-height: 0;
 }
 
 .form-actions {
@@ -345,11 +832,32 @@ function removeFile() {
   border-radius: var(--radius);
   cursor: pointer;
   transition: background 0.2s, transform 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
   background: var(--color-accent-hover);
   transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-graphite);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Upload Card */
@@ -523,5 +1031,424 @@ function removeFile() {
 .remove-btn:hover {
   background: rgba(211, 47, 47, 0.1);
   color: #d32f2f;
+}
+
+/* Upload Tips */
+.upload-tips {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-bg);
+}
+
+.tips-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.75rem;
+}
+
+.tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tips-list li {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding-left: 1rem;
+  position: relative;
+}
+
+.tips-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+/* Uploaded Bills */
+.bills-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.bills-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.bills-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.bills-count {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-graphite);
+  background: var(--color-bg);
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+}
+
+.bills-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.bills-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+
+.bills-empty-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.bills-empty p {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.bills-empty-hint {
+  font-size: 0.75rem !important;
+  margin-top: 0.25rem;
+  color: var(--color-grey) !important;
+}
+
+.bills-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.bill-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-bg);
+}
+
+.bill-row:last-child {
+  border-bottom: none;
+}
+
+.bill-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.bill-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bill-thumb-icon {
+  font-size: 1.25rem;
+}
+
+.bill-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bill-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bill-meta {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  margin-top: 0.125rem;
+}
+
+.bill-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.bill-amount {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.bill-amount.income {
+  color: #2e7d32;
+}
+
+.bill-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.bill-action-btn {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.bill-action-btn.view {
+  color: var(--color-graphite);
+  text-decoration: underline;
+}
+
+.bill-action-btn.view:hover {
+  color: var(--color-accent);
+}
+
+.bill-action-btn.download {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  padding: 0.125rem 0.25rem;
+  border-radius: var(--radius);
+}
+
+.bill-action-btn.download:hover {
+  color: var(--color-accent);
+  background: var(--color-bg);
+}
+
+/* OCR Status */
+.ocr-status {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--color-bg);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--color-border);
+}
+
+.ocr-status-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.ocr-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.ocr-status-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.ocr-status-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.ocr-status-sub {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  margin-top: 0.125rem;
+}
+
+.ocr-progress-bar {
+  height: 3px;
+  background: var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ocr-progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* OCR Result */
+.ocr-result {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(46, 125, 50, 0.04);
+  border-radius: var(--radius);
+  border: 1.5px solid rgba(46, 125, 50, 0.2);
+}
+
+.ocr-result-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ocr-result-icon {
+  font-size: 1rem;
+}
+
+.ocr-result-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #2e7d32;
+  flex: 1;
+}
+
+.ocr-dismiss {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.625rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.ocr-dismiss:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.ocr-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ocr-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+}
+
+.ocr-field-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  min-width: 60px;
+}
+
+.ocr-field-value {
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ocr-field-btn {
+  font-size: 0.625rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: #2e7d32;
+  background: rgba(46, 125, 50, 0.08);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.ocr-field-btn:hover {
+  background: rgba(46, 125, 50, 0.15);
+}
+
+/* OCR Error */
+.ocr-error {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(211, 47, 47, 0.04);
+  border-radius: var(--radius);
+  border: 1.5px solid rgba(211, 47, 47, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ocr-error-icon {
+  font-size: 0.875rem;
+}
+
+.ocr-error-text {
+  font-size: 0.8125rem;
+  color: #c62828;
+  flex: 1;
+}
+
+/* OCR Transitions */
+.ocr-slide-enter-active {
+  transition: all 0.25s ease;
+}
+.ocr-slide-leave-active {
+  transition: all 0.2s ease;
+}
+.ocr-slide-enter-from {
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  max-height: 0;
+  overflow: hidden;
+}
+.ocr-slide-enter-to {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 300px;
+  overflow: hidden;
+}
+.ocr-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  max-height: 0;
+  overflow: hidden;
 }
 </style>

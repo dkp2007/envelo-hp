@@ -11,12 +11,10 @@ create table public.contact_messages (
 
 alter table public.contact_messages enable row level security;
 
--- Anyone logged in can insert their own messages
 create policy "Users can submit messages"
   on public.contact_messages for insert
   with check (auth.uid() = user_id or user_id is null);
 
--- Users can read their own messages
 create policy "Users can view own messages"
   on public.contact_messages for select
   using (auth.uid() = user_id);

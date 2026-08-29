@@ -103,66 +103,6 @@ envelo/
 └── vite.config.js
 ```
 
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Node.js** ≥ 22.18 or ≥ 24.12
-- A **Supabase** project ([supabase.com](https://supabase.com))
-- A **Groq** API key ([console.groq.com](https://console.groq.com)) — optional, for AI features
-
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/dkp2007/envelo-hp.git
-cd envelo-hp
-npm install
-```
-
-### 2. Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-# Supabase
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-
-# Groq AI (optional — AI features disabled without this)
-VITE_GROQ_API_KEY=gsk_your-groq-key
-```
-
-### 3. Database Setup
-
-Run the SQL migrations in your Supabase SQL Editor in order:
-
-1. `supabase/migrations/001_create_tables.sql` — Core tables (profiles, envelopes, transactions, savings_goals)
-2. `supabase/migrations/002_enable_rls.sql` — Row Level Security policies
-3. `supabase/migrations/003_seed_data.sql` — Default envelope categories and sample data
-4. `supabase/migrations/004_user_settings.sql` — User settings table
-5. `supabase/migrations/005_contact_messages.sql` — Contact form submissions
-
-### 4. Run Development Server
-
-```bash
-npm run dev
-```
-
-The app will be available at **http://localhost:5173**.
-
-### 5. Build for Production
-
-```bash
-npm run build
-```
-
-Preview the production build:
-
-```bash
-npm run preview
-```
 
 ---
 
@@ -180,17 +120,6 @@ npm run preview
 | **AI** | Groq SDK (LLaMA 3.3 70B) |
 | **Linting** | ESLint + oxlint + Prettier |
 
----
-
-## 📜 Available Scripts
-
-| Command | Description |
-|---|---|
-| `npm run dev` | Start Vite dev server with hot reload |
-| `npm run build` | Production build |
-| `npm run preview` | Preview production build locally |
-| `npm run lint` | Run oxlint + ESLint with auto-fix |
-| `npm run format` | Format code with Prettier |
 
 ---
 

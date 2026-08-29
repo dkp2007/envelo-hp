@@ -32,10 +32,23 @@ function getDefaultMonth() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-// Parent expense categories (not subcategories)
+// Fallback categories when DB has none
+const FALLBACK_CATEGORIES = [
+  { id: 'fb-rent', name: 'Rent', icon: '🏠', color: '#202124', type: 'expense' },
+  { id: 'fb-food', name: 'Food', icon: '🍔', color: '#D7F34A', type: 'expense' },
+  { id: 'fb-fun', name: 'Fun', icon: '🎮', color: '#4285F4', type: 'expense' },
+  { id: 'fb-savings', name: 'Savings', icon: '💰', color: '#2e7d32', type: 'expense' },
+  { id: 'fb-utilities', name: 'Utilities', icon: '💡', color: '#f472b6', type: 'expense' },
+  { id: 'fb-transport', name: 'Transport', icon: '🚗', color: '#9c27b0', type: 'expense' },
+  { id: 'fb-shopping', name: 'Shopping', icon: '🛍️', color: '#fb923c', type: 'expense' },
+  { id: 'fb-entertainment', name: 'Entertainment', icon: '🎬', color: '#a78bfa', type: 'expense' },
+]
+
+// Parent expense categories (not subcategories) + fallback
 const availableCategories = computed(() => {
-  const usedIds = budgetData.value.map(b => b.category_id)
-  return allCategories.value.filter(c => !c.parent_id && c.type === 'expense')
+  const dbCategories = allCategories.value.filter(c => !c.parent_id && c.type === 'expense')
+  if (dbCategories.length > 0) return dbCategories
+  return FALLBACK_CATEGORIES
 })
 
 function openAddModal() {
@@ -65,10 +78,31 @@ async function saveEnvelope() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
+    // Handle fallback category IDs — create in DB first
+    let categoryId = form.value.category_id
+    if (categoryId.startsWith('fb-')) {
+      const fallback = FALLBACK_CATEGORIES.find(c => c.id === categoryId)
+      if (fallback) {
+        const { data: newCat, error: catErr } = await supabase
+          .from('categories')
+          .insert({
+            user_id: user.id,
+            name: fallback.name,
+            icon: fallback.icon,
+            color: fallback.color,
+            type: 'expense',
+          })
+          .select('id')
+          .single()
+        if (catErr) throw catErr
+        categoryId = newCat.id
+      }
+    }
+
     if (editingId.value) {
       // Update existing
       const { error } = await supabase.from('budgets').update({
-        category_id: form.value.category_id,
+        category_id: categoryId,
         amount: Number(form.value.amount),
         month: form.value.month,
       }).eq('id', editingId.value)
@@ -80,22 +114,20 @@ async function saveEnvelope() {
         .from('budgets')
         .select('id')
         .eq('user_id', user.id)
-        .eq('category_id', form.value.category_id)
+        .eq('category_id', categoryId)
         .eq('month', form.value.month)
         .maybeSingle()
 
       if (existing) {
-        // Update instead
         const { error } = await supabase.from('budgets').update({
           amount: Number(form.value.amount),
         }).eq('id', existing.id)
         if (error) throw error
         toast.success('Envelope updated')
       } else {
-        // Insert new
         const { error } = await supabase.from('budgets').insert({
           user_id: user.id,
-          category_id: form.value.category_id,
+          category_id: categoryId,
           amount: Number(form.value.amount),
           spent: 0,
           month: form.value.month,

@@ -3,11 +3,19 @@ import { ref, onUnmounted } from 'vue'
 const siteKey = import.meta.env.VITE_HCAPTCHA_SITE_KEY
 let widgetId = null
 
+// Skip captcha on localhost / development
+const isLocalhost = window.location.hostname === 'localhost'
+  || window.location.hostname === '127.0.0.1'
+  || window.location.hostname === ''
+
 export function useHcaptcha() {
   const token = ref('')
   const error = ref('')
 
   function render(containerId) {
+    // Skip captcha on localhost
+    if (isLocalhost) return Promise.resolve(-1)
+
     return new Promise((resolve) => {
       const checkReady = setInterval(() => {
         if (window.hcaptcha) {
@@ -33,6 +41,7 @@ export function useHcaptcha() {
   }
 
   function reset() {
+    if (isLocalhost) return
     if (widgetId !== null && window.hcaptcha) {
       window.hcaptcha.reset(widgetId)
       token.value = ''
@@ -40,6 +49,7 @@ export function useHcaptcha() {
   }
 
   function getToken() {
+    if (isLocalhost) return '' // empty token is fine on localhost
     if (token.value) return token.value
     if (widgetId !== null && window.hcaptcha) {
       return window.hcaptcha.getResponse(widgetId) || ''
@@ -51,5 +61,5 @@ export function useHcaptcha() {
     reset()
   })
 
-  return { token, error, render, reset, getToken }
+  return { token, error, render, reset, getToken, isLocalhost }
 }

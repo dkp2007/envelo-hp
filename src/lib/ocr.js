@@ -56,24 +56,26 @@ export async function parseBillWithAI(ocrText) {
       messages: [
         {
           role: 'system',
-          content: `You are a bill/receipt parser. Extract structured data from Indian receipts and bills.
+          content: `You are an expert receipt/bill parser for Indian stores and shops.
 
-Return ONLY a JSON object with these fields (no markdown, no code fences, no extra text):
+Given OCR text from a receipt image, extract structured data.
+The OCR text may contain garbage characters, page numbers, or noise — focus on the actual bill content.
+
+Return ONLY a JSON object (no markdown, no code fences, no extra text):
 {
-  "name": "short description of the transaction (e.g. 'Big Bazaar Groceries')",
-  "amount": 1234.56,
+  "name": "short description like 'Big Bazaar Groceries' or 'Zomato Order'",
+  "amount": 4232.00,
   "date": "2025-08-29",
   "category": "Food",
-  "merchant": "store/vendor name"
+  "merchant": "store name from receipt header"
 }
 
 Rules:
-- amount is a positive number (no currency symbol), use null if not found
-- If you see multiple amounts, pick the TOTAL/FINAL amount
-- category must be one of: Rent, Food, Fun, Savings, Salary, Freelance, Other
-- date is YYYY-MM-DD format, use null if not found
-- merchant is the store/vendor name from the header, use null if not found
-- name is a short human-readable description of what was purchased`
+- name: a concise description of what was bought (skip page numbers, invoice headers)
+- amount: the TOTAL/FINAL amount as a positive number (look for 'Total', 'Grand Total', 'Amount Payable', 'Net Amount'). Use null if truly not found.
+- date: purchase date in YYYY-MM-DD format. Use null if not found.
+- category: one of Rent, Food, Fun, Savings, Salary, Freelance, Other. Infer from the items purchased.
+- merchant: the shop/store/company name (usually at the top of the receipt). Use null if not found.`
         },
         {
           role: 'user',

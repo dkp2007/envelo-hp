@@ -86,29 +86,50 @@ async function downloadBill(bill) {
   URL.revokeObjectURL(url)
 }
 
+// Hardcoded fallback categories (used when DB has none)
+const FALLBACK_CATEGORIES = [
+  { id: 'fb-rent', name: 'Rent', icon: '🏠', color: '#202124', parent_id: null, type: 'expense' },
+  { id: 'fb-housing', name: 'Housing', icon: '🏠', color: '#202124', parent_id: 'fb-rent', type: 'expense' },
+  { id: 'fb-utilities', name: 'Utilities', icon: '💡', color: '#f472b6', parent_id: 'fb-rent', type: 'expense' },
+  { id: 'fb-internet', name: 'Internet', icon: '🌐', color: '#4285F4', parent_id: 'fb-rent', type: 'expense' },
+  { id: 'fb-maintenance', name: 'Maintenance', icon: '🔧', color: '#795548', parent_id: 'fb-rent', type: 'expense' },
+  { id: 'fb-food', name: 'Food', icon: '🍔', color: '#D7F34A', parent_id: null, type: 'expense' },
+  { id: 'fb-groceries', name: 'Groceries', icon: '🛒', color: '#D7F34A', parent_id: 'fb-food', type: 'expense' },
+  { id: 'fb-dining', name: 'Dining Out', icon: '🍽️', color: '#fb923c', parent_id: 'fb-food', type: 'expense' },
+  { id: 'fb-delivery', name: 'Delivery', icon: '🛵', color: '#f472b6', parent_id: 'fb-food', type: 'expense' },
+  { id: 'fb-coffee', name: 'Coffee', icon: '☕', color: '#795548', parent_id: 'fb-food', type: 'expense' },
+  { id: 'fb-fun', name: 'Fun', icon: '🎮', color: '#4285F4', parent_id: null, type: 'expense' },
+  { id: 'fb-entertainment', name: 'Entertainment', icon: '🎬', color: '#a78bfa', parent_id: 'fb-fun', type: 'expense' },
+  { id: 'fb-shopping', name: 'Shopping', icon: '🛍️', color: '#fb923c', parent_id: 'fb-fun', type: 'expense' },
+  { id: 'fb-travel', name: 'Travel', icon: '✈️', color: '#4285F4', parent_id: 'fb-fun', type: 'expense' },
+  { id: 'fb-subs', name: 'Subscriptions', icon: '📱', color: '#f472b6', parent_id: 'fb-fun', type: 'expense' },
+  { id: 'fb-savings', name: 'Savings', icon: '💰', color: '#2e7d32', parent_id: null, type: 'expense' },
+  { id: 'fb-emergency', name: 'Emergency Fund', icon: '🏦', color: '#2e7d32', parent_id: 'fb-savings', type: 'expense' },
+  { id: 'fb-investments', name: 'Investments', icon: '📈', color: '#4285F4', parent_id: 'fb-savings', type: 'expense' },
+  { id: 'fb-goals', name: 'Goals', icon: '🎯', color: '#D7F34A', parent_id: 'fb-savings', type: 'expense' },
+  { id: 'fb-salary', name: 'Salary', icon: '💼', color: '#2e7d32', parent_id: null, type: 'income' },
+  { id: 'fb-base', name: 'Base Salary', icon: '💰', color: '#2e7d32', parent_id: 'fb-salary', type: 'income' },
+  { id: 'fb-bonus', name: 'Bonus', icon: '🎁', color: '#388e3c', parent_id: 'fb-salary', type: 'income' },
+  { id: 'fb-freelance', name: 'Freelance', icon: '💻', color: '#4285F4', parent_id: null, type: 'income' },
+  { id: 'fb-projects', name: 'Projects', icon: '📋', color: '#4285F4', parent_id: 'fb-freelance', type: 'income' },
+]
+
 // Fetch user's categories from DB, split into parents and subs
 async function fetchCategories() {
   if (!auth.user) return
-  // Try user-specific categories first
-  let { data } = await supabase
+  const { data } = await supabase
     .from('categories')
     .select('id, name, icon, parent_id, type')
     .eq('user_id', auth.user.id)
     .order('name')
 
-  // Fallback: if no user categories, try all categories (for demo/test accounts)
-  if (!data || data.length === 0) {
-    const fallback = await supabase
-      .from('categories')
-      .select('id, name, icon, parent_id, type')
-      .order('name')
-    data = fallback.data
-  }
-
-  if (data) {
+  if (data && data.length > 0) {
     allCategories.value = data
-    filterByType(type.value)
+  } else {
+    // Use hardcoded fallback when no DB categories exist
+    allCategories.value = FALLBACK_CATEGORIES
   }
+  filterByType(type.value)
 }
 
 function filterByType(t) {

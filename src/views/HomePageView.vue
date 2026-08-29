@@ -289,7 +289,7 @@ const testimonials = [
             <h4 class="footer-col-title">Product</h4>
             <a href="/#features" class="footer-link">Features</a>
             <router-link to="/help" class="footer-link">Help & Support</router-link>
-            <a href="https://github.com/dkp2007/envelo" target="_blank" class="footer-link">GitHub</a>
+            <a href="https://github.com/dkp2007/envelo-hp" target="_blank" class="footer-link">GitHub</a>
           </div>
           <div class="footer-col">
             <h4 class="footer-col-title">Legal</h4>

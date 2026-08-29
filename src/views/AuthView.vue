@@ -5,7 +5,7 @@ import { useHcaptcha } from '@/composables/useHcaptcha'
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha'
 
 const auth = useAuthStore()
-const { siteKey, getToken, hasValidToken, onVerify, onExpire, onError, error: captchaError, isLocalhost } = useHcaptcha()
+const { siteKey, consumeToken, hasValidToken, onVerify, onExpire, onError, error: captchaError, isLocalhost } = useHcaptcha()
 
 const activeTab = ref('signin')
 const email = ref('')
@@ -21,10 +21,9 @@ const signUpCaptcha = ref(null)
 
 function resetCaptcha() {
   if (isLocalhost) return
-  if (activeTab.value === 'signin' && signInCaptcha.value) {
-    signInCaptcha.value.reset()
-  } else if (signUpCaptcha.value) {
-    signUpCaptcha.value.reset()
+  const ref = activeTab.value === 'signin' ? signInCaptcha.value : signUpCaptcha.value
+  if (ref) {
+    ref.reset()
   }
 }
 
@@ -35,9 +34,12 @@ async function handleGoogleLogin() {
     return
   }
   try {
-    await auth.loginWithGoogle(getToken())
+    const token = consumeToken()
+    await auth.loginWithGoogle(token)
   } catch (err) {
     error.value = err.message
+  } finally {
+    resetCaptcha()
   }
 }
 
@@ -49,12 +51,13 @@ async function handleEmailSignIn() {
   }
   loading.value = true
   try {
-    await auth.signInWithEmail(email.value, password.value, getToken())
+    const token = consumeToken()
+    await auth.signInWithEmail(email.value, password.value, token)
   } catch (err) {
     error.value = err.message
-    resetCaptcha()
   } finally {
     loading.value = false
+    resetCaptcha()
   }
 }
 
@@ -67,15 +70,16 @@ async function handleEmailSignUp() {
   }
   loading.value = true
   try {
-    await auth.signUpWithEmail(email.value, password.value, getToken())
+    const token = consumeToken()
+    await auth.signUpWithEmail(email.value, password.value, token)
     successMessage.value = 'Check your email for a verification link.'
     email.value = ''
     password.value = ''
   } catch (err) {
     error.value = err.message
-    resetCaptcha()
   } finally {
     loading.value = false
+    resetCaptcha()
   }
 }
 

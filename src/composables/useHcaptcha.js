@@ -39,9 +39,18 @@ export function useHcaptcha() {
     error.value = ''
   }
 
+  /** Return current token without consuming it */
   function getToken() {
     if (isLocalhost) return 'localhost-skip'
     return token.value || ''
+  }
+
+  /** Return current token AND clear it (single-use, prevents "already-seen-response") */
+  function consumeToken() {
+    if (isLocalhost) return 'localhost-skip'
+    const t = token.value || ''
+    token.value = ''
+    return t
   }
 
   function hasValidToken() {
@@ -60,6 +69,7 @@ export function useHcaptcha() {
     onError,
     resetToken,
     getToken,
+    consumeToken,
     hasValidToken,
   }
 }

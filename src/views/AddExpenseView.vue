@@ -25,6 +25,7 @@ const ocrResult = ref(null)
 const ocrError = ref('')
 const ocrConfirmData = ref(null) // extracted data ready for confirm
 const ocrSaving = ref(false)
+const justAddedId = ref(null) // highlight newly added bill
 
 const allCategories = ref([])
 const parentCategories = ref([])
@@ -375,12 +376,19 @@ async function confirmOcrTransaction() {
     if (error) throw error
 
     success.value = true
-    // Reset everything
+    // Reset OCR state
     ocrConfirmData.value = null
     ocrResult.value = null
     ocrError.value = ''
     removeFile()
-    fetchBills()
+    // Wait a beat for DB replication, then refresh bills
+    await new Promise(r => setTimeout(r, 300))
+    await fetchBills()
+    // Highlight the newest bill
+    if (uploadedBills.value.length > 0) {
+      justAddedId.value = uploadedBills.value[0].id
+      setTimeout(() => { justAddedId.value = null }, 4000)
+    }
     setTimeout(() => { success.value = false }, 3000)
   } catch (err) {
     ocrError.value = err.message || 'Failed to save transaction'
@@ -696,7 +704,7 @@ function formatDate(dateStr) {
           </div>
 
           <div v-else class="bills-list">
-            <div v-for="bill in uploadedBills" :key="bill.id" class="bill-row">
+            <div v-for="bill in uploadedBills" :key="bill.id" class="bill-row" :class="{ 'bill-new': justAddedId === bill.id }">
               <div class="bill-thumb" @click="bill.signedUrl && window.open(bill.signedUrl, '_blank')">
                 <img
                   v-if="bill.signedUrl && isImage(bill.bill_path)"
@@ -1293,6 +1301,20 @@ function formatDate(dateStr) {
   gap: 0.75rem;
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--color-bg);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.bill-row.bill-new {
+  background: rgba(46, 125, 50, 0.06);
+  border-radius: var(--radius);
+  margin: 0 -0.5rem;
+  padding: 0.75rem 0.5rem;
+  animation: billHighlight 4s ease-out;
+}
+
+@keyframes billHighlight {
+  0% { background: rgba(215, 243, 74, 0.2); }
+  100% { background: rgba(46, 125, 50, 0.06); }
 }
 
 .bill-row:last-child {

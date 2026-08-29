@@ -77,7 +77,7 @@ const fireflyPositions = [
 
 function fireflyStyle(n) {
   const pos = fireflyPositions[(n - 1) % fireflyPositions.length]
-  const size = 3 + (n % 4) * 1.5 // 3px to 7.5px
+  const size = 1.5 + (n % 3) * 0.8 // 1.5px to 3.1px
   const delay = (n * 1.3) % 8
   const duration = 6 + (n % 5) * 2 // 6s to 14s
   // Random directions for each firefly
@@ -300,8 +300,8 @@ function fireflyStyle(n) {
   border-radius: 50%;
   background: var(--glow-color);
   box-shadow:
-    0 0 6px 2px var(--glow-color),
-    0 0 16px 4px var(--glow-spread);
+    0 0 4px 1px var(--glow-color),
+    0 0 10px 2px var(--glow-spread);
   animation:
     fireflyDrift var(--duration, 8s) ease-in-out var(--delay, 0s) infinite alternate,
     fireflyGlow var(--duration, 8s) ease-in-out var(--delay, 0s) infinite alternate;
@@ -345,8 +345,8 @@ function fireflyStyle(n) {
   }
   50% {
     box-shadow:
-      0 0 10px 4px var(--glow-color),
-      0 0 24px 8px var(--glow-spread);
+      0 0 6px 2px var(--glow-color),
+      0 0 14px 4px var(--glow-spread);
   }
 }
 

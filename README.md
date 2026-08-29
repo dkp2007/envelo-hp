@@ -133,8 +133,8 @@ envelo/
 
 ## 📄 Legal
 
-- [Privacy Policy](https://github.com/dkp2007/envelo-hp/blob/main/src/views/PrivacyPolicyView.vue)
-- [Terms of Service](https://github.com/dkp2007/envelo-hp/blob/main/src/views/TermsOfServiceView.vue)
+- [Privacy Policy](https://envelo.netlify.app/privacypolicy)
+- [Terms of Service](https://envelo.netlify.app/termsofservice)
 
 ---
 

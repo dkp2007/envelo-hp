@@ -6,11 +6,17 @@ import { useAuthStore } from '@/stores/auth'
 const router = useRouter()
 const auth = useAuthStore()
 
-const showSplash = ref(true)
 const splashGif = '/envelo-intro.gif'
+const hasSeenSplash = sessionStorage.getItem('envelo-splash-seen')
+const showSplash = ref(!hasSeenSplash)
 
 onMounted(() => {
-  setTimeout(() => { showSplash.value = false }, 4500)
+  if (showSplash.value) {
+    setTimeout(() => {
+      showSplash.value = false
+      sessionStorage.setItem('envelo-splash-seen', '1')
+    }, 4500)
+  }
 })
 
 const features = [

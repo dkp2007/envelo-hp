@@ -49,7 +49,7 @@ export function useHcaptcha() {
   }
 
   function getToken() {
-    if (isLocalhost) return '' // empty token is fine on localhost
+    if (isLocalhost) return 'localhost-skip' // non-empty dummy for localhost
     if (token.value) return token.value
     if (widgetId !== null && window.hcaptcha) {
       return window.hcaptcha.getResponse(widgetId) || ''
@@ -57,9 +57,14 @@ export function useHcaptcha() {
     return ''
   }
 
+  function hasValidToken() {
+    if (isLocalhost) return true
+    return !!getToken()
+  }
+
   onUnmounted(() => {
     reset()
   })
 
-  return { token, error, render, reset, getToken, isLocalhost }
+  return { token, error, render, reset, getToken, hasValidToken, isLocalhost }
 }

@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useHcaptcha } from '@/composables/useHcaptcha'
 
 const auth = useAuthStore()
-const { render: renderHcaptcha, getToken, error: captchaError, isLocalhost } = useHcaptcha()
+const { render: renderHcaptcha, getToken, hasValidToken, error: captchaError, isLocalhost } = useHcaptcha()
 
 const activeTab = ref('signin')
 const email = ref('')
@@ -25,6 +25,10 @@ onMounted(initCaptcha)
 
 async function handleGoogleLogin() {
   error.value = ''
+  if (!isLocalhost && !hasValidToken()) {
+    error.value = 'Please complete the captcha verification.'
+    return
+  }
   try {
     await auth.loginWithGoogle(getToken())
   } catch (err) {
@@ -34,6 +38,10 @@ async function handleGoogleLogin() {
 
 async function handleEmailSignIn() {
   error.value = ''
+  if (!isLocalhost && !hasValidToken()) {
+    error.value = 'Please complete the captcha verification.'
+    return
+  }
   loading.value = true
   try {
     await auth.signInWithEmail(email.value, password.value, getToken())
@@ -47,6 +55,10 @@ async function handleEmailSignIn() {
 async function handleEmailSignUp() {
   error.value = ''
   successMessage.value = ''
+  if (!isLocalhost && !hasValidToken()) {
+    error.value = 'Please complete the captcha verification.'
+    return
+  }
   loading.value = true
   try {
     await auth.signUpWithEmail(email.value, password.value, getToken())

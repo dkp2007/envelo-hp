@@ -199,10 +199,35 @@ async function handleSubmit() {
       billPath = await uploadBill(auth.user.id)
     }
 
+    // Resolve category_id: if using fallback (fb-*), insert category into DB first
+    let resolvedCategoryId = category.value
+    if (resolvedCategoryId && resolvedCategoryId.startsWith('fb-')) {
+      const fallbackCat = FALLBACK_CATEGORIES.find(c => c.id === resolvedCategoryId)
+      if (fallbackCat) {
+        const { data: newCat, error: catErr } = await supabase
+          .from('categories')
+          .insert({
+            user_id: auth.user.id,
+            name: fallbackCat.name,
+            icon: fallbackCat.icon,
+            color: fallbackCat.color,
+            parent_id: null,
+            type: fallbackCat.type,
+          })
+          .select('id')
+          .single()
+        if (catErr) {
+          console.warn('Could not create category:', catErr)
+          resolvedCategoryId = null // insert without category
+        } else {
+          resolvedCategoryId = newCat.id
+        }
+      }
+    }
+
     // Insert transaction
-    const { error } = await supabase.from('transactions').insert({
+    const txData = {
       user_id: auth.user.id,
-      category_id: category.value,
       name: name.value.trim(),
       amount: type.value === 'expense' ? -Math.abs(Number(amount.value)) : Math.abs(Number(amount.value)),
       type: type.value,
@@ -211,7 +236,12 @@ async function handleSubmit() {
       bill_path: billPath,
       merchant: ocrResult.value?.merchant || null,
       ocr_raw_text: ocrResult.value?.rawText || null,
-    })
+    }
+    // Only set category_id if it's a real DB ID
+    if (resolvedCategoryId && !resolvedCategoryId.startsWith('fb-')) {
+      txData.category_id = resolvedCategoryId
+    }
+    const { error } = await supabase.from('transactions').insert(txData)
 
     if (error) throw error
 

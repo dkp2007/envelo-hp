@@ -165,7 +165,8 @@ onUnmounted(() => {
         <footer class="app-footer">
           <div class="footer-inner">
             <div class="footer-left">
-              <img src="/wordmark.png" alt="Envelo" class="footer-wordmark" />
+              <img src="/icon.png" alt="" class="footer-logo" />
+              <span class="footer-brand">Envelo</span>
             </div>
             <div class="footer-links">
               <router-link to="/privacypolicy" class="footer-link">Privacy Policy</router-link>
@@ -578,10 +579,16 @@ onUnmounted(() => {
   gap: 0.375rem;
 }
 
-.footer-wordmark {
-  height: 16px;
-  width: auto;
+.footer-logo {
+  width: 18px;
+  height: 18px;
   object-fit: contain;
+}
+
+.footer-brand {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .footer-links {

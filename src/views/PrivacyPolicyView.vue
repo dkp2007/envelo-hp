@@ -12,7 +12,7 @@ const router = useRouter()
 
     <div class="legal-card">
       <div class="legal-header">
-        <img src="/wordmark.png" alt="Envelo" class="legal-wordmark" />
+        <img src="/icon.png" alt="Envelo" class="legal-logo" />
         <h1 class="legal-title">Privacy Policy</h1>
         <p class="legal-date">Last updated: August 29, 2025</p>
       </div>
@@ -181,9 +181,9 @@ const router = useRouter()
   border-bottom: 1px solid var(--color-bg);
 }
 
-.legal-wordmark {
-  height: 36px;
-  width: auto;
+.legal-logo {
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   margin-bottom: 1rem;
 }

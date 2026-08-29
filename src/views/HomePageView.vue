@@ -80,7 +80,8 @@ const stats = [
     <nav class="nav">
       <div class="nav-inner">
         <div class="nav-brand" @click="router.push('/')">
-          <img src="/wordmark.png" alt="Envelo" class="nav-wordmark" />
+          <img src="/icon.png" alt="Envelo" class="nav-logo" />
+          <span class="nav-name">Envelo</span>
         </div>
         <div class="nav-right">
           <template v-if="auth.isLoggedIn">
@@ -208,7 +209,8 @@ const stats = [
       <div class="footer-inner">
         <div class="footer-brand">
           <div class="footer-logo-row">
-            <img src="/wordmark.png" alt="Envelo" class="footer-wordmark" />
+            <img src="/icon.png" alt="Envelo" class="footer-logo" />
+            <span class="footer-name">Envelo</span>
           </div>
           <p class="footer-tagline">Budget smarter. Save more.</p>
         </div>
@@ -302,10 +304,16 @@ const stats = [
   cursor: pointer;
 }
 
-.nav-wordmark {
-  height: 26px;
-  width: auto;
+.nav-logo {
+  width: 32px;
+  height: 32px;
   object-fit: contain;
+}
+
+.nav-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text);
 }
 
 .nav-right {
@@ -746,10 +754,16 @@ const stats = [
   margin-bottom: 0.5rem;
 }
 
-.footer-wordmark {
-  height: 22px;
-  width: auto;
+.footer-logo {
+  width: 28px;
+  height: 28px;
   object-fit: contain;
+}
+
+.footer-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
 }
 
 .footer-tagline {

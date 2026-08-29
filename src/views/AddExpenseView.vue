@@ -89,11 +89,21 @@ async function downloadBill(bill) {
 // Fetch user's categories from DB, split into parents and subs
 async function fetchCategories() {
   if (!auth.user) return
-  const { data } = await supabase
+  // Try user-specific categories first
+  let { data } = await supabase
     .from('categories')
     .select('id, name, icon, parent_id, type')
     .eq('user_id', auth.user.id)
     .order('name')
+
+  // Fallback: if no user categories, try all categories (for demo/test accounts)
+  if (!data || data.length === 0) {
+    const fallback = await supabase
+      .from('categories')
+      .select('id, name, icon, parent_id, type')
+      .order('name')
+    data = fallback.data
+  }
 
   if (data) {
     allCategories.value = data
@@ -525,10 +535,9 @@ function formatDate(dateStr) {
               <li>You can delete bills from the Transactions tab</li>
             </ul>
           </div>
-        </div>
 
-        <!-- Uploaded Bills -->
-        <div class="bills-card">
+          <!-- Uploaded Bills (inside right column) -->
+          <div class="bills-section">
           <div class="bills-header">
             <h2 class="bills-title">📄 Uploaded Bills</h2>
             <span class="bills-count" v-if="uploadedBills.length">{{ uploadedBills.length }}</span>
@@ -573,6 +582,7 @@ function formatDate(dateStr) {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -1071,12 +1081,11 @@ function formatDate(dateStr) {
   font-weight: 700;
 }
 
-/* Uploaded Bills */
-.bills-card {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+/* Uploaded Bills (inside upload card) */
+.bills-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-bg);
 }
 
 .bills-header {

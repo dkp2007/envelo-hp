@@ -239,10 +239,10 @@ async function runOcr(file) {
   try {
     const result = await processBill(file, (p) => { ocrProgress.value = p })
     ocrResult.value = result
-    // Auto-fill form fields from OCR data
-    if (result.name) name.value = result.name
-    if (result.amount) amount.value = result.amount
-    if (result.date) date.value = result.date
+    // Auto-fill form fields from OCR data (only if they have values)
+    if (result.name && !name.value) name.value = result.name
+    if (result.amount && !amount.value) amount.value = result.amount
+    if (result.date && !date.value) date.value = result.date
     // Try to match category
     if (result.category) {
       const match = allCategories.value.find(
@@ -255,7 +255,8 @@ async function runOcr(file) {
       }
     }
   } catch (err) {
-    ocrError.value = err.message || 'Failed to read bill'
+    console.error('OCR pipeline error:', err)
+    ocrError.value = err.message || 'Failed to read bill. Try uploading a clearer image.'
   } finally {
     ocrProcessing.value = false
   }
@@ -514,6 +515,11 @@ function formatDate(dateStr) {
                   <span class="ocr-field-value">{{ ocrResult.category }}</span>
                 </div>
               </div>
+              <!-- Raw OCR text toggle -->
+              <details class="ocr-raw-toggle">
+                <summary class="ocr-raw-summary">View raw OCR text</summary>
+                <pre class="ocr-raw-text">{{ ocrResult.rawText || 'No text detected' }}</pre>
+              </details>
             </div>
           </Transition>
 
@@ -1411,6 +1417,38 @@ function formatDate(dateStr) {
 
 .ocr-field-btn:hover {
   background: rgba(46, 125, 50, 0.15);
+}
+
+/* OCR Raw Text */
+.ocr-raw-toggle {
+  margin-top: 0.75rem;
+}
+
+.ocr-raw-summary {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ocr-raw-summary:hover {
+  color: var(--color-text);
+}
+
+.ocr-raw-text {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  font-size: 0.6875rem;
+  font-family: monospace;
+  color: var(--color-text-muted);
+  max-height: 150px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  border: 1px solid var(--color-border);
 }
 
 /* OCR Error */

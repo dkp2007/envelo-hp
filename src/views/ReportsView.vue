@@ -16,6 +16,11 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEle
 
 const { loading, fetchAll, monthlyData, budgetData, topExpenses } = useFinance()
 
+// Chart refs for capturing canvas images
+const barChartRef = ref(null)
+const lineChartRef = ref(null)
+const doughnutChartRef = ref(null)
+
 onMounted(() => { fetchAll() })
 
 const selectedRange = ref('6m')
@@ -114,46 +119,101 @@ const budgetActualOptions = {
   },
 }
 
-// PDF Export
-function exportPDF() {
-  const doc = new jsPDF()
-  const now = new Date()
+// Get chart canvas as image data URL
+function getChartImage(chartRef, width = 160, height = 100) {
+  if (!chartRef.value) return null
+  const canvas = chartRef.value.$el?.querySelector('canvas') || chartRef.value.chart?.canvas
+  if (!canvas) return null
+  // Create a scaled copy for better resolution
+  const tmpCanvas = document.createElement('canvas')
+  tmpCanvas.width = width * 2
+  tmpCanvas.height = height * 2
+  const ctx = tmpCanvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height)
+  ctx.drawImage(canvas, 0, 0, tmpCanvas.width, tmpCanvas.height)
+  return tmpCanvas.toDataURL('image/png', 1.0)
+}
 
-  doc.setFontSize(20)
+// PDF Export with charts
+function exportPDF() {
+  const doc = new jsPDF('p', 'mm', 'a4')
+  const pageWidth = 210
+  const margin = 14
+  const now = new Date()
+  let y = 20
+
+  // Header
+  doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
-  doc.text('Financial Report', 14, 22)
+  doc.text('Envelo Financial Report', margin, y)
+  y += 8
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(120)
-  doc.text('Generated on ' + now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), 14, 30)
+  doc.text('Generated on ' + now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), margin, y)
+  y += 4
+  doc.setDrawColor(215, 243, 74)
+  doc.setLineWidth(0.5)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 10
 
-  // Monthly overview
-  doc.setFontSize(14)
+  // ── Income vs Expenses Chart ──
+  const barImg = getChartImage(barChartRef, 180, 100)
+  if (barImg) {
+    doc.setFontSize(13)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0)
+    doc.text('Income vs Expenses', margin, y)
+    y += 5
+    doc.addImage(barImg, 'PNG', margin, y, 180, 90)
+    y += 95
+  }
+
+  // ── Monthly Overview Table ──
+  doc.setFontSize(13)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0)
-  doc.text('Monthly Overview', 14, 44)
+  doc.text('Monthly Overview', margin, y)
+  y += 4
 
   doc.autoTable({
-    startY: 48,
-    head: [['Month', 'Income', 'Expenses', 'Saved', 'Savings Rate']],
+    startY: y,
+    head: [['Month', 'Income', 'Expenses', 'Saved', 'Rate']],
     body: months.value.map(m => [
       m.name, '₹' + m.income.toLocaleString(), '₹' + m.expenses.toLocaleString(),
       '₹' + m.saved.toLocaleString(), (m.income ? Math.round(m.saved / m.income * 100) : 0) + '%',
     ]),
     theme: 'grid', headStyles: { fillColor: [32, 33, 36], fontSize: 9 },
     bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: [245, 245, 240] },
-    margin: { left: 14 },
+    margin: { left: margin },
   })
+  y = doc.lastAutoTable.finalY + 12
 
-  // Budget vs Actual
-  if (budgetData.value.length > 0) {
-    const y1 = doc.lastAutoTable.finalY + 14
-    doc.setFontSize(14)
+  // ── Savings Trend Chart ──
+  const lineImg = getChartImage(lineChartRef, 180, 100)
+  if (lineImg) {
+    if (y > 180) { doc.addPage(); y = 20 }
+    doc.setFontSize(13)
     doc.setFont('helvetica', 'bold')
-    doc.text('Budget vs Actual', 14, y1)
+    doc.setTextColor(0)
+    doc.text('Savings Trend', margin, y)
+    y += 5
+    doc.addImage(lineImg, 'PNG', margin, y, 180, 90)
+    y += 95
+  }
+
+  // ── Budget vs Actual ──
+  if (budgetData.value.length > 0) {
+    if (y > 160) { doc.addPage(); y = 20 }
+    doc.setFontSize(13)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0)
+    doc.text('Budget vs Actual', margin, y)
+    y += 4
 
     doc.autoTable({
-      startY: y1 + 4,
+      startY: y,
       head: [['Category', 'Budget', 'Actual', 'Remaining', 'Status']],
       body: budgetData.value.map(b => [
         b.icon + ' ' + b.name, '₹' + b.budget.toLocaleString(), '₹' + b.spent.toLocaleString(),
@@ -162,35 +222,49 @@ function exportPDF() {
       ]),
       theme: 'grid', headStyles: { fillColor: [32, 33, 36], fontSize: 9 },
       bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: [245, 245, 240] },
-      margin: { left: 14 },
+      margin: { left: margin },
     })
+    y = doc.lastAutoTable.finalY + 8
+
+    // Doughnut chart next to or below the table
+    const doughnutImg = getChartImage(doughnutChartRef, 90, 90)
+    if (doughnutImg) {
+      if (y > 180) { doc.addPage(); y = 20 }
+      doc.addImage(doughnutImg, 'PNG', margin, y, 80, 80)
+      y += 85
+    }
   }
 
-  // Top Expenses
+  // ── Top Expenses ──
   if (topExpenses.value.length > 0) {
-    const y2 = doc.lastAutoTable.finalY + 14
-    doc.setFontSize(14)
+    if (y > 200) { doc.addPage(); y = 20 }
+    doc.setFontSize(13)
     doc.setFont('helvetica', 'bold')
-    doc.text('Top Expenses This Month', 14, y2)
+    doc.setTextColor(0)
+    doc.text('Top Expenses This Month', margin, y)
+    y += 4
 
     doc.autoTable({
-      startY: y2 + 4,
+      startY: y,
       head: [['Category', 'Amount', '% of Total']],
       body: topExpenses.value.map(e => [e.name, '₹' + e.amount.toLocaleString(), e.pct + '%']),
       theme: 'grid', headStyles: { fillColor: [32, 33, 36], fontSize: 9 },
       bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: [245, 245, 240] },
-      margin: { left: 14 },
+      margin: { left: margin },
     })
+    y = doc.lastAutoTable.finalY + 12
   }
 
-  // Key Metrics
-  const y3 = doc.lastAutoTable.finalY + 14
-  doc.setFontSize(14)
+  // ── Key Metrics ──
+  if (y > 200) { doc.addPage(); y = 20 }
+  doc.setFontSize(13)
   doc.setFont('helvetica', 'bold')
-  doc.text('Key Metrics', 14, y3)
+  doc.setTextColor(0)
+  doc.text('Key Metrics', margin, y)
+  y += 4
 
   doc.autoTable({
-    startY: y3 + 4,
+    startY: y,
     head: [['Metric', 'Value']],
     body: [
       ['Average Monthly Income', '₹' + avgIncome.value.toLocaleString()],
@@ -202,7 +276,7 @@ function exportPDF() {
     ].filter(Boolean),
     theme: 'grid', headStyles: { fillColor: [32, 33, 36], fontSize: 9 },
     bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: [245, 245, 240] },
-    margin: { left: 14 },
+    margin: { left: margin },
   })
 
   doc.save('Envelo_Financial_Report.pdf')
@@ -247,6 +321,16 @@ function exportExcel() {
   ].filter(Boolean))
   ws4['!cols'] = [{ wch: 30 }, { wch: 22 }]
   XLSX.utils.book_append_sheet(wb, ws4, 'Key Metrics')
+
+  // Add chart images to Excel if possible
+  try {
+    const barImg = getChartImage(barChartRef, 800, 400)
+    if (barImg) {
+      const ws5 = XLSX.utils.aoa_to_sheet([['Income vs Expenses Chart'], ['']])
+      ws5['!images'] = [{ name: 'chart', data: barImg.split(',')[1], x: 0, y: 0, w: 600, h: 300 }]
+      XLSX.utils.book_append_sheet(wb, ws5, 'Charts')
+    }
+  } catch { /* image embedding not supported in all xlsx builds */ }
 
   XLSX.writeFile(wb, 'Envelo_Financial_Report.xlsx')
 }
@@ -317,7 +401,7 @@ function exportExcel() {
                 <h2 class="card-title">Income vs Expenses</h2>
               </div>
               <div class="chart-tall">
-                <Bar :data="barData" :options="barOptions" />
+                <Bar ref="barChartRef" :data="barData" :options="barOptions" />
               </div>
             </div>
             <div class="card chart-card-narrow">
@@ -325,7 +409,7 @@ function exportExcel() {
                 <h2 class="card-title">Savings Trend</h2>
               </div>
               <div class="chart-tall">
-                <Line :data="lineData" :options="lineOptions" />
+                <Line ref="lineChartRef" :data="lineData" :options="lineOptions" />
               </div>
             </div>
           </div>
@@ -338,7 +422,7 @@ function exportExcel() {
               </div>
               <div class="budget-grid">
                 <div class="budget-chart-wrap">
-                  <Doughnut :data="budgetActualData" :options="budgetActualOptions" />
+                  <Doughnut ref="doughnutChartRef" :data="budgetActualData" :options="budgetActualOptions" />
                 </div>
                 <div class="budget-list">
                   <div v-for="b in budgetData" :key="b.id" class="budget-row">

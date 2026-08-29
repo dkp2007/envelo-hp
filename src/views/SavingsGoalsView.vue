@@ -123,7 +123,8 @@ const totalSaved = computed(() => goals.value.reduce((s, g) => s + g.current, 0)
         <div v-if="goals.length === 0" class="empty-state">
           <div class="empty-icon">🎯</div>
           <h3>No savings goals yet</h3>
-          <p>Create a goal in your settings to start tracking progress!</p>
+          <p>Create your first goal to start tracking progress!</p>
+          <button class="add-btn" @click="openAdd">+ Create First Goal</button>
         </div>
 
         <template v-else>
@@ -240,10 +241,10 @@ const totalSaved = computed(() => goals.value.reduce((s, g) => s + g.current, 0)
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.empty-state { text-align: center; padding: 4rem 1rem; color: var(--color-text-muted); }
+.empty-state { text-align: center; padding: 4rem 1rem; color: var(--color-text-muted); display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 .empty-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
-.empty-state h3 { font-size: 1rem; font-weight: 600; color: var(--color-text); margin-bottom: 0.25rem; }
-.empty-state p { font-size: 0.8125rem; }
+.empty-state h3 { font-size: 1rem; font-weight: 600; color: var(--color-text); }
+.empty-state p { font-size: 0.8125rem; margin-bottom: 0.75rem; }
 
 .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 

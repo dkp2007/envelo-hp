@@ -66,6 +66,17 @@ const stats = [
   { value: '100%', label: 'Free & Open Source' },
 ]
 
+const mockBars = [
+  { h: 55, label: 'Jan', color: 'var(--color-graphite)' },
+  { h: 70, label: 'Feb', color: 'var(--color-accent)' },
+  { h: 45, label: 'Mar', color: 'var(--color-graphite)' },
+  { h: 80, label: 'Apr', color: 'var(--color-accent)' },
+  { h: 60, label: 'May', color: 'var(--color-graphite)' },
+  { h: 35, label: 'Jun', color: 'var(--color-accent)' },
+  { h: 90, label: 'Jul', color: 'var(--color-graphite)' },
+  { h: 50, label: 'Aug', color: 'var(--color-accent)' },
+]
+
 const testimonials = [
   {
     quote: 'I finally know where my money goes every month. The envelope system changed how I think about spending.',
@@ -162,7 +173,10 @@ const testimonials = [
             </div>
           </div>
           <div class="mock-chart-area">
-            <div class="mock-bar" v-for="(h, i) in [65, 45, 80, 55, 70, 40, 90]" :key="i" :style="{ height: h + '%', animationDelay: i * 0.1 + 's' }"></div>
+            <div v-for="(bar, i) in mockBars" :key="i" class="mock-bar-col">
+              <div class="mock-bar" :style="{ height: bar.h + '%', animationDelay: i * 0.08 + 's', background: bar.color }"></div>
+              <span class="mock-bar-label">{{ bar.label }}</span>
+            </div>
           </div>
           <div class="mock-label">Monthly Spending · Real-time</div>
         </div>
@@ -547,6 +561,7 @@ const testimonials = [
   position: relative;
   display: flex;
   justify-content: center;
+  padding: 2rem 0;
 }
 
 .mock-dashboard {
@@ -554,17 +569,19 @@ const testimonials = [
   border-radius: var(--radius-lg);
   padding: 0;
   width: 100%;
-  max-width: 400px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+  max-width: 420px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   border: 1px solid var(--color-border);
+  position: relative;
+  z-index: 2;
 }
 
 .mock-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.875rem 1.25rem;
+  padding: 0.75rem 1.25rem;
   background: var(--color-graphite);
 }
 
@@ -595,7 +612,7 @@ const testimonials = [
 }
 
 .mock-stat {
-  padding: 1rem;
+  padding: 0.875rem 0.75rem;
   text-align: center;
   border-right: 1px solid var(--color-border);
 }
@@ -606,16 +623,16 @@ const testimonials = [
 
 .mock-stat-label {
   display: block;
-  font-size: 0.625rem;
+  font-size: 0.5625rem;
   color: var(--color-text-muted);
   margin-bottom: 0.25rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 .mock-stat-value {
   display: block;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 800;
 }
 
@@ -627,26 +644,38 @@ const testimonials = [
   display: flex;
   align-items: flex-end;
   gap: 6px;
-  padding: 1.25rem 1.25rem 0.75rem;
-  height: 120px;
+  padding: 1rem 1.25rem 0.25rem;
+  height: 140px;
+}
+
+.mock-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  height: 100%;
+  justify-content: flex-end;
 }
 
 .mock-bar {
-  flex: 1;
-  background: var(--color-accent);
+  width: 100%;
   border-radius: 4px 4px 0 0;
-  animation: barGrow 0.8s ease-out forwards;
-  opacity: 0.85;
-  min-height: 8px;
+  animation: barGrow 0.6s ease-out forwards;
+  transform-origin: bottom;
+  min-height: 6px;
 }
 
-.mock-bar:nth-child(odd) {
-  background: var(--color-graphite);
+.mock-bar-label {
+  font-size: 0.5rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 @keyframes barGrow {
-  0% { height: 0; }
-  100% { height: inherit; }
+  0% { transform: scaleY(0); }
+  100% { transform: scaleY(1); }
 }
 
 .mock-label {
@@ -661,46 +690,47 @@ const testimonials = [
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.5rem;
   background: var(--color-surface);
   border-radius: var(--radius);
-  padding: 0.75rem 1rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  animation: float 3s ease-in-out infinite;
+  padding: 0.625rem 0.875rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  animation: float 4s ease-in-out infinite;
   border: 1px solid var(--color-border);
+  z-index: 3;
 }
 
 .fc-1 {
-  top: 15%;
-  left: -10%;
+  top: 4%;
+  left: -6%;
   animation-delay: 0s;
 }
 
 .fc-2 {
-  bottom: 15%;
-  right: -8%;
-  animation-delay: 1.5s;
+  bottom: 8%;
+  right: -4%;
+  animation-delay: 2s;
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+  50% { transform: translateY(-6px); }
 }
 
 .fc-icon {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
 }
 
 .fc-title {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--color-text);
 }
 
 .fc-sub {
   display: block;
-  font-size: 0.625rem;
+  font-size: 0.5625rem;
   color: var(--color-text-muted);
 }
 

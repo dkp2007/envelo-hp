@@ -251,48 +251,6 @@ const testimonials = [
       </div>
     </section>
 
-    <!-- Tech Stack -->
-    <section class="tech-section">
-      <div class="section-inner">
-        <div class="section-header">
-          <h2 class="section-title">Built with modern tech</h2>
-          <p class="section-desc">Open source, transparent, and built to scale.</p>
-        </div>
-        <div class="tech-grid">
-          <div class="tech-item">
-            <span class="tech-icon">⚡</span>
-            <span class="tech-name">Vue 3 + Vite</span>
-            <span class="tech-desc">Lightning-fast frontend</span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-icon">🗄️</span>
-            <span class="tech-name">Supabase</span>
-            <span class="tech-desc">PostgreSQL + Auth + Storage</span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-icon">🤖</span>
-            <span class="tech-name">Groq AI</span>
-            <span class="tech-desc">LLaMA / GPT-OSS models</span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-icon">📸</span>
-            <span class="tech-name">Tesseract.js</span>
-            <span class="tech-desc">In-browser OCR engine</span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-icon">📊</span>
-            <span class="tech-name">Chart.js</span>
-            <span class="tech-desc">5 interactive chart types</span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-icon">🔒</span>
-            <span class="tech-name">Row-Level Security</span>
-            <span class="tech-desc">User data isolation</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- CTA -->
     <section class="cta-section">
       <div class="cta-inner">
@@ -942,52 +900,6 @@ const testimonials = [
 }
 
 .testimonial-role {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
-/* ─── Tech Stack ─── */
-.tech-section {
-  background: var(--color-bg);
-  border-top: 1px solid var(--color-border);
-}
-
-.tech-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.25rem;
-}
-
-.tech-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  border: 1px solid var(--color-border);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.tech-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-}
-
-.tech-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.tech-name {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.tech-desc {
   display: block;
   font-size: 0.75rem;
   color: var(--color-text-muted);

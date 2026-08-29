@@ -21,8 +21,10 @@ const dragOver = ref(false)
 // OCR state
 const ocrProcessing = ref(false)
 const ocrProgress = ref(0)
-const ocrResult = ref(null) // { name, amount, date, category, merchant, rawText }
+const ocrResult = ref(null)
 const ocrError = ref('')
+const ocrConfirmData = ref(null) // extracted data ready for confirm
+const ocrSaving = ref(false)
 
 const allCategories = ref([])
 const parentCategories = ref([])
@@ -286,24 +288,29 @@ async function runOcr(file) {
   ocrProgress.value = 0
   ocrError.value = ''
   ocrResult.value = null
+  ocrConfirmData.value = null
 
   try {
     const result = await processBill(file, (p) => { ocrProgress.value = p })
     ocrResult.value = result
-    // Auto-fill form fields from OCR data (only if they have values)
-    if (result.name && !name.value) name.value = result.name
-    if (result.amount && !amount.value) amount.value = result.amount
-    if (result.date && !date.value) date.value = result.date
-    // Try to match category
+
+    // Resolve category match
+    let resolvedCategory = null
     if (result.category) {
       const match = allCategories.value.find(
         c => c.name.toLowerCase() === result.category.toLowerCase() && !c.parent_id
       )
-      if (match) {
-        selectedParent.value = match
-        category.value = match.id
-        subCategories.value = allCategories.value.filter(c => c.parent_id === match.id)
-      }
+      if (match) resolvedCategory = match
+    }
+
+    // Show confirmation card
+    ocrConfirmData.value = {
+      name: result.name || 'Unnamed Transaction',
+      amount: result.amount || 0,
+      date: result.date || new Date().toISOString().split('T')[0],
+      category: resolvedCategory,
+      categoryName: result.category || 'Other',
+      merchant: result.merchant || null,
     }
   } catch (err) {
     console.error('OCR pipeline error:', err)
@@ -313,15 +320,89 @@ async function runOcr(file) {
   }
 }
 
-function applyOcrField(field, value) {
-  if (field === 'name') name.value = value
-  else if (field === 'amount') amount.value = value
-  else if (field === 'date') date.value = value
+// Confirm and save the OCR-extracted transaction directly
+async function confirmOcrTransaction() {
+  if (!auth.user || !ocrConfirmData.value) return
+  ocrSaving.value = true
+  ocrError.value = ''
+
+  try {
+    // Upload bill if present
+    let billPath = null
+    if (billFile.value) {
+      billPath = await uploadBill(auth.user.id)
+    }
+
+    const data = ocrConfirmData.value
+    let categoryId = data.category?.id || null
+
+    // Create fallback category in DB if needed
+    if (categoryId && categoryId.startsWith('fb-')) {
+      const fallbackCat = FALLBACK_CATEGORIES.find(c => c.id === categoryId)
+      if (fallbackCat) {
+        const { data: newCat } = await supabase
+          .from('categories')
+          .insert({
+            user_id: auth.user.id,
+            name: fallbackCat.name,
+            icon: fallbackCat.icon,
+            color: fallbackCat.color,
+            parent_id: null,
+            type: fallbackCat.type,
+          })
+          .select('id')
+          .single()
+        if (newCat) categoryId = newCat.id
+      }
+    }
+
+    const txData = {
+      user_id: auth.user.id,
+      name: data.name,
+      amount: -Math.abs(Number(data.amount)),
+      type: 'expense',
+      date: data.date,
+      notes: data.merchant ? `Merchant: ${data.merchant}` : null,
+      bill_path: billPath,
+      merchant: data.merchant,
+      ocr_raw_text: ocrResult.value?.rawText || null,
+    }
+    if (categoryId && !categoryId.startsWith('fb-')) {
+      txData.category_id = categoryId
+    }
+
+    const { error } = await supabase.from('transactions').insert(txData)
+    if (error) throw error
+
+    success.value = true
+    // Reset everything
+    ocrConfirmData.value = null
+    ocrResult.value = null
+    ocrError.value = ''
+    removeFile()
+    fetchBills()
+    setTimeout(() => { success.value = false }, 3000)
+  } catch (err) {
+    ocrError.value = err.message || 'Failed to save transaction'
+  } finally {
+    ocrSaving.value = false
+  }
 }
 
-function dismissOcrResult() {
+// Edit: fill form from OCR data instead of confirming
+function editOcrData() {
+  const data = ocrConfirmData.value
+  if (!data) return
+  name.value = data.name
+  if (data.amount) amount.value = data.amount
+  if (data.date) date.value = data.date
+  if (data.category) {
+    selectedParent.value = data.category
+    category.value = data.category.id
+    subCategories.value = allCategories.value.filter(c => c.parent_id === data.category.id)
+  }
+  ocrConfirmData.value = null
   ocrResult.value = null
-  ocrError.value = ''
 }
 
 function onDragOver(e) {
@@ -533,44 +614,47 @@ function formatDate(dateStr) {
             </div>
           </Transition>
 
-          <!-- OCR Result -->
+          <!-- OCR Confirm Card -->
           <Transition name="ocr-slide">
-            <div v-if="ocrResult && !ocrProcessing" class="ocr-result">
-              <div class="ocr-result-header">
-                <span class="ocr-result-icon">✨</span>
-                <span class="ocr-result-title">Bill data extracted</span>
-                <button class="ocr-dismiss" @click="dismissOcrResult">✕</button>
+            <div v-if="ocrConfirmData && !ocrProcessing" class="ocr-confirm">
+              <div class="ocr-confirm-header">
+                <span class="ocr-confirm-icon">✨</span>
+                <span class="ocr-confirm-title">Bill data extracted</span>
               </div>
-              <div class="ocr-fields">
-                <div v-if="ocrResult.name" class="ocr-field">
-                  <span class="ocr-field-label">Name</span>
-                  <span class="ocr-field-value">{{ ocrResult.name }}</span>
-                  <button class="ocr-field-btn" @click="applyOcrField('name', ocrResult.name)">Use</button>
+              <p class="ocr-confirm-sub">Review and confirm to save this transaction</p>
+
+              <div class="confirm-fields">
+                <div class="confirm-row">
+                  <span class="confirm-label">Name</span>
+                  <span class="confirm-value">{{ ocrConfirmData.name }}</span>
                 </div>
-                <div v-if="ocrResult.amount" class="ocr-field">
-                  <span class="ocr-field-label">Amount</span>
-                  <span class="ocr-field-value">₹{{ ocrResult.amount.toLocaleString() }}</span>
-                  <button class="ocr-field-btn" @click="applyOcrField('amount', ocrResult.amount)">Use</button>
+                <div class="confirm-row highlight">
+                  <span class="confirm-label">Amount</span>
+                  <span class="confirm-value amount">₹{{ ocrConfirmData.amount.toLocaleString() }}</span>
                 </div>
-                <div v-if="ocrResult.date" class="ocr-field">
-                  <span class="ocr-field-label">Date</span>
-                  <span class="ocr-field-value">{{ formatDate(ocrResult.date) }}</span>
-                  <button class="ocr-field-btn" @click="applyOcrField('date', ocrResult.date)">Use</button>
+                <div class="confirm-row">
+                  <span class="confirm-label">Date</span>
+                  <span class="confirm-value">{{ formatDate(ocrConfirmData.date) }}</span>
                 </div>
-                <div v-if="ocrResult.merchant" class="ocr-field">
-                  <span class="ocr-field-label">Merchant</span>
-                  <span class="ocr-field-value">{{ ocrResult.merchant }}</span>
+                <div class="confirm-row">
+                  <span class="confirm-label">Category</span>
+                  <span class="confirm-value">{{ ocrConfirmData.category?.icon || '📦' }} {{ ocrConfirmData.categoryName }}</span>
                 </div>
-                <div v-if="ocrResult.category" class="ocr-field">
-                  <span class="ocr-field-label">Category</span>
-                  <span class="ocr-field-value">{{ ocrResult.category }}</span>
+                <div v-if="ocrConfirmData.merchant" class="confirm-row">
+                  <span class="confirm-label">Merchant</span>
+                  <span class="confirm-value">{{ ocrConfirmData.merchant }}</span>
                 </div>
               </div>
-              <!-- Raw OCR text toggle -->
-              <details class="ocr-raw-toggle">
-                <summary class="ocr-raw-summary">View raw OCR text</summary>
-                <pre class="ocr-raw-text">{{ ocrResult.rawText || 'No text detected' }}</pre>
-              </details>
+
+              <div class="confirm-actions">
+                <button class="confirm-edit-btn" @click="editOcrData">✏️ Edit</button>
+                <button class="confirm-save-btn" :disabled="ocrSaving" @click="confirmOcrTransaction">
+                  <span v-if="ocrSaving" class="confirm-spinner"></span>
+                  {{ ocrSaving ? 'Saving...' : '✓ Confirm & Save' }}
+                </button>
+              </div>
+
+              <button class="ocr-dismiss-top" @click="ocrConfirmData = null; ocrResult = null">✕</button>
             </div>
           </Transition>
 
@@ -1374,36 +1458,143 @@ function formatDate(dateStr) {
   transition: width 0.3s ease;
 }
 
-/* OCR Result */
-.ocr-result {
+/* OCR Confirm Card */
+.ocr-confirm {
   margin-top: 1rem;
-  padding: 1rem;
+  padding: 1.25rem;
   background: rgba(46, 125, 50, 0.04);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   border: 1.5px solid rgba(46, 125, 50, 0.2);
+  position: relative;
 }
 
-.ocr-result-header {
+.ocr-confirm-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.25rem;
 }
 
-.ocr-result-icon {
-  font-size: 1rem;
-}
+.ocr-confirm-icon { font-size: 1rem; }
 
-.ocr-result-title {
-  font-size: 0.8125rem;
+.ocr-confirm-title {
+  font-size: 0.875rem;
   font-weight: 600;
   color: #2e7d32;
-  flex: 1;
 }
 
-.ocr-dismiss {
-  width: 20px;
-  height: 20px;
+.ocr-confirm-sub {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+}
+
+.confirm-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.confirm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+}
+
+.confirm-row.highlight {
+  background: rgba(215, 243, 74, 0.12);
+  border: 1px solid rgba(215, 243, 74, 0.3);
+}
+
+.confirm-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.confirm-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.confirm-value.amount {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.confirm-edit-btn {
+  flex: 1;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.confirm-edit-btn:hover {
+  border-color: var(--color-graphite);
+  color: var(--color-text);
+}
+
+.confirm-save-btn {
+  flex: 1.5;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--color-graphite);
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.confirm-save-btn:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+.confirm-save-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.confirm-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-graphite);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.ocr-dismiss-top {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -1416,58 +1607,8 @@ function formatDate(dateStr) {
   transition: background 0.15s;
 }
 
-.ocr-dismiss:hover {
+.ocr-dismiss-top:hover {
   background: rgba(0, 0, 0, 0.06);
-}
-
-.ocr-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.ocr-field {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.5rem;
-  background: var(--color-surface);
-  border-radius: var(--radius);
-}
-
-.ocr-field-label {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  min-width: 60px;
-}
-
-.ocr-field-value {
-  font-size: 0.8125rem;
-  color: var(--color-text);
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ocr-field-btn {
-  font-size: 0.625rem;
-  font-weight: 600;
-  font-family: var(--font-sans);
-  color: #2e7d32;
-  background: rgba(46, 125, 50, 0.08);
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.25rem 0.5rem;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-
-.ocr-field-btn:hover {
-  background: rgba(46, 125, 50, 0.15);
 }
 
 /* OCR Raw Text */

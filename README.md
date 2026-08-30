@@ -157,11 +157,14 @@ envelo/
 ## 👤 Author
 
 **Dhruv Kumar Pandit** — [dkp2007](https://github.com/dkp2007)
+**Ayushi** — [giyasingh015-oss](https://github.com/giyasingh015-oss)
+**Punya** — [punyatrivedi1417-hub](https://github.com/punyatrivedi1417-hub)
+**Dhruv Pandey** — [dhruvrpandey18-creator](https://github.com/dhruvrpandey18-creator)
 
 ---
 
 <div align="center">
 
-Built with ❤️ and Vue.js
+Built with ❤️
 
 </div>

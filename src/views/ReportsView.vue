@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { jsPDF } from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import { Bar, Line, Doughnut } from 'vue-chartjs'
 import {
@@ -177,7 +177,7 @@ function exportPDF() {
   doc.text('Monthly Overview', margin, y)
   y += 4
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     head: [['Month', 'Income', 'Expenses', 'Saved', 'Rate']],
     body: months.value.map(m => [
@@ -212,7 +212,7 @@ function exportPDF() {
     doc.text('Budget vs Actual', margin, y)
     y += 4
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [['Category', 'Budget', 'Actual', 'Remaining', 'Status']],
       body: budgetData.value.map(b => [
@@ -244,7 +244,7 @@ function exportPDF() {
     doc.text('Top Expenses This Month', margin, y)
     y += 4
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [['Category', 'Amount', '% of Total']],
       body: topExpenses.value.map(e => [e.name, '₹' + e.amount.toLocaleString(), e.pct + '%']),
@@ -263,7 +263,7 @@ function exportPDF() {
   doc.text('Key Metrics', margin, y)
   y += 4
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     head: [['Metric', 'Value']],
     body: [
